@@ -1,0 +1,372 @@
+@page "/itinerarios/{Id:int}/viaje"
+@layout EmptyLayout
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IAsyncDisposable
+@using TurismoConecta.web.Client.Pages.Inicio
+@inject ItinerarioApiService ItinerarioApi
+@inject ViajeApiService ViajeApi
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Modo viaje | TurismoConecta</PageTitle>
+
+<HeadContent>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</HeadContent>
+
+<div class="pagina-viaje">
+
+    <header class="viaje-header">
+        <a class="viaje-volver" href="/usuario/panel">← Mi panel</a>
+        <h1 class="viaje-titulo">@(itinerario?.Nombre ?? "Mi viaje")</h1>
+        <div class="viaje-acciones">
+            <button type="button" class="viaje-btn" @onclick="AlternarVoz">
+                @(vozActiva ? "🔊 Voz activada" : "🔇 Activar voz")
+            </button>
+            <button type="button" class="viaje-btn viaje-btn-sec" @onclick="AlternarSimulacion" disabled="@(!mapaIniciado)">
+                @(simulando ? "■ Detener simulación" : "▶ Simular recorrido")
+            </button>
+        </div>
+    </header>
+
+    @if (cargando)
+    {
+        <p class="viaje-estado">Preparando tu ruta…</p>
+    }
+    else if (error is not null)
+    {
+        <div class="viaje-estado viaje-error">
+            <p>@error</p>
+            <a class="viaje-btn" href="/login">Iniciar sesión</a>
+            <a class="viaje-btn viaje-btn-sec" href="/usuario/panel">Volver a mi panel</a>
+        </div>
+    }
+    else
+    {
+        <div class="viaje-mapa-wrap">
+            <div id="mapa-viaje" class="mapa-viaje"></div>
+
+            <div class="viaje-hud">
+                <span class="viaje-chip @(simulando ? "chip-sim" : "chip-gps")">@estadoGps</span>
+                @if (rutaTexto is not null)
+                {
+                    <span class="viaje-chip chip-ruta">🛣️ @rutaTexto</span>
+                }
+            </div>
+        </div>
+
+        <section class="viaje-info">
+            <article class="viaje-card">
+                <h2>Tu ruta</h2>
+                <div class="viaje-paradas">
+                    @for (var i = 0; i < paradas.Count; i++)
+                    {
+                        <span class="viaje-parada-chip">
+                            <span class="viaje-parada-num">@(i + 1)</span>@paradas[i].Nombre
+                        </span>
+                    }
+                </div>
+                <button type="button" class="viaje-link" @onclick="RecalcularRuta">↻ Recalcular desde mi ubicación</button>
+            </article>
+
+            <article class="viaje-card viaje-card-condor">
+                <h2>El Cóndor te cuenta</h2>
+                @if (ultimaNarracion is null)
+                {
+                    <p>Cuando pases cerca de un pueblo te diré a qué mano queda y qué ofrece. Activa la voz para escucharme y, si quieres más detalles, pregúntame en el chat.</p>
+                }
+                else
+                {
+                    <p>@ultimaNarracion</p>
+                }
+            </article>
+        </section>
+
+        <CondorChat @ref="chat" Contexto="@contextoViaje" />
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private record Parada(string Nombre, int IdMunicipio, double Latitud, double Longitud);
+
+    private ItinerarioDetalleDto? itinerario;
+    private List<Parada> paradas = new();
+    private List<PuebloViajeDto> pueblos = new();
+
+    private bool cargando = true;
+    private string? error;
+    private bool mapaIniciado;
+
+    private DotNetObjectReference<ModoViaje>? referencia;
+    private CondorChat? chat;
+
+    private bool vozActiva;
+    private bool simulando;
+    private string estadoGps = "Buscando tu ubicación…";
+    private string? rutaTexto;
+    private string? ultimaNarracion;
+    private string contextoViaje = "";
+
+    // Seguimiento del movimiento
+    private (double Lat, double Lng)? posReferencia;
+    private double? rumbo;
+    private readonly HashSet<int> anunciados = new();
+    private DateTime ultimaVoz = DateTime.MinValue;
+    private const double RadioAvisoKm = 8;
+
+    protected override async Task OnInitializedAsync()
+    {
+        itinerario = await ItinerarioApi.ObtenerDetalleAsync(Id);
+
+        if (itinerario is null)
+        {
+            error = "No pudimos cargar este itinerario. Revisa que hayas iniciado sesión con la cuenta que lo creó.";
+            cargando = false;
+            return;
+        }
+
+        pueblos = await ViajeApi.ListarPueblosAsync();
+
+        foreach (var p in itinerario.Paradas.OrderBy(x => x.DiaNumero).ThenBy(x => x.Orden))
+        {
+            var pueblo = pueblos.FirstOrDefault(x => x.IdMunicipio == p.IdMunicipio);
+            if (pueblo is not null)
+                paradas.Add(new Parada(p.NombreMunicipio, p.IdMunicipio, pueblo.Latitud, pueblo.Longitud));
+        }
+
+        if (paradas.Count == 0)
+            error = "Las paradas de este itinerario todavía no tienen ubicación registrada, así que no podemos trazar la ruta.";
+
+        contextoViaje = ConstruirContexto(null);
+        cargando = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // El mapa se crea cuando ya existe el <div id="mapa-viaje"> (después de cargar los datos).
+        if (mapaIniciado || cargando || error is not null || paradas.Count == 0) return;
+
+        mapaIniciado = true;
+        referencia = DotNetObjectReference.Create(this);
+
+        var paradasJs = paradas.Select(p => new { nombre = p.Nombre, latitud = p.Latitud, longitud = p.Longitud }).ToList();
+        var pueblosJs = pueblos.Select(p => new { id = p.IdMunicipio, nombre = p.Nombre, latitud = p.Latitud, longitud = p.Longitud }).ToList();
+
+        try
+        {
+            await JS.InvokeVoidAsync("TurismoConectaViaje.inicializar", paradasJs, pueblosJs, referencia);
+            StateHasChanged(); // habilita el botón de simulación
+        }
+        catch (JSException)
+        {
+            mapaIniciado = false;
+            error = "No se pudo iniciar el mapa. Verifica que App.razor incluya js/modo-viaje.js y recarga con Ctrl+Shift+R.";
+            StateHasChanged();
+        }
+    }
+
+    // ───────────── Botones ─────────────
+    private async Task AlternarVoz()
+    {
+        vozActiva = !vozActiva;
+
+        if (vozActiva)
+            await JS.InvokeVoidAsync("TurismoConectaViaje.hablar", "Voz activada. Te iré contando por dónde pasamos.", true);
+        else
+            await JS.InvokeVoidAsync("TurismoConectaViaje.silenciar");
+    }
+
+    private async Task AlternarSimulacion()
+    {
+        if (simulando)
+        {
+            await JS.InvokeVoidAsync("TurismoConectaViaje.detenerSimulacion");
+            simulando = false;
+            estadoGps = "Simulación detenida";
+            return;
+        }
+
+        anunciados.Clear();
+        posReferencia = null;
+        rumbo = null;
+        ultimaVoz = DateTime.MinValue;
+        simulando = true;
+        estadoGps = "Simulando recorrido";
+
+        await JS.InvokeVoidAsync("TurismoConectaViaje.simular", 500, 1000);
+    }
+
+    private async Task RecalcularRuta()
+        => await JS.InvokeVoidAsync("TurismoConectaViaje.recalcularDesdeMiUbicacion");
+
+    // ───────────── Llamadas desde JavaScript ─────────────
+    [JSInvokable]
+    public async Task ActualizarPosicion(double lat, double lng, double? rumboGps)
+    {
+        estadoGps = simulando ? "Simulando recorrido" : "GPS activo";
+
+        if (rumboGps is double r && !double.IsNaN(r))
+        {
+            rumbo = r;
+            posReferencia = (lat, lng);
+        }
+        else if (posReferencia is null)
+        {
+            posReferencia = (lat, lng);
+        }
+        else
+        {
+            // Sin brújula: deducimos hacia dónde vas comparando con tu posición anterior.
+            var metros = GeoUtil.DistanciaKm(posReferencia.Value.Lat, posReferencia.Value.Lng, lat, lng) * 1000;
+            if (metros >= 40)
+            {
+                rumbo = GeoUtil.Rumbo(posReferencia.Value.Lat, posReferencia.Value.Lng, lat, lng);
+                posReferencia = (lat, lng);
+            }
+        }
+
+        StateHasChanged();
+
+        if (rumbo is null) return; // todavía no sabemos hacia dónde te mueves
+        await EvaluarCercaniaAsync(lat, lng, rumbo.Value);
+    }
+
+    [JSInvokable]
+    public void RutaCalculada(double km, double minutos, bool porCarretera)
+    {
+        rutaTexto = $"{km:0} km · {FormatearDuracion(minutos)}" + (porCarretera ? "" : " (aprox. en línea recta)");
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void SimulacionTerminada()
+    {
+        simulando = false;
+        estadoGps = "Llegaste al final de la ruta";
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void SinGps()
+    {
+        estadoGps = "Tu navegador no permite ubicación. Usa «Simular recorrido».";
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public void ErrorGps(int codigo)
+    {
+        estadoGps = codigo switch
+        {
+            1 => "Permiso de ubicación denegado. Actívalo en el navegador o usa «Simular recorrido».",
+            2 => "No se pudo determinar tu ubicación.",
+            _ => "La ubicación tardó demasiado en responder."
+        };
+        StateHasChanged();
+    }
+
+    // ───────────── Lógica del copiloto ─────────────
+    private async Task EvaluarCercaniaAsync(double lat, double lng, double rumboViaje)
+    {
+        var espera = simulando ? 8 : 12; // segundos entre avisos
+        if ((DateTime.UtcNow - ultimaVoz).TotalSeconds < espera) return;
+
+        PuebloViajeDto? elegido = null;
+        var kmElegido = double.MaxValue;
+        var ladoElegido = GeoUtil.Lado.Adelante;
+
+        foreach (var p in pueblos)
+        {
+            if (anunciados.Contains(p.IdMunicipio)) continue;
+
+            var km = GeoUtil.DistanciaKm(lat, lng, p.Latitud, p.Longitud);
+            if (km > RadioAvisoKm || km >= kmElegido) continue;
+
+            var lado = GeoUtil.LadoRelativo(rumboViaje, GeoUtil.Rumbo(lat, lng, p.Latitud, p.Longitud));
+            if (lado == GeoUtil.Lado.Atras) continue; // ya lo dejaste atrás
+
+            elegido = p;
+            kmElegido = km;
+            ladoElegido = lado;
+        }
+
+        if (elegido is null) return;
+
+        anunciados.Add(elegido.IdMunicipio);
+        ultimaVoz = DateTime.UtcNow;
+
+        var texto = ConstruirFrase(elegido, kmElegido, ladoElegido);
+        ultimaNarracion = texto;
+        contextoViaje = ConstruirContexto($"{elegido.Nombre} ({TextoLado(ladoElegido)})");
+
+        chat?.AgregarMensajeCondor(texto);
+
+        if (vozActiva)
+            await JS.InvokeVoidAsync("TurismoConectaViaje.hablar", texto, simulando);
+
+        StateHasChanged();
+    }
+
+    private string ConstruirFrase(PuebloViajeDto p, double km, GeoUtil.Lado lado)
+    {
+        var ubicacion = lado switch
+        {
+            GeoUtil.Lado.Derecha => "A tu mano derecha",
+            GeoUtil.Lado.Izquierda => "A tu mano izquierda",
+            _ => "Al frente"
+        };
+
+        var distancia = km < 1 ? "a menos de un kilómetro" : $"a unos {Math.Round(km)} kilómetros";
+        var esParada = paradas.Any(x => x.IdMunicipio == p.IdMunicipio);
+
+        var intro = esParada
+            ? $"{ubicacion}, {distancia}, se acerca tu parada: {p.Nombre}."
+            : $"{ubicacion}, {distancia}, encontrarás {p.Nombre}.";
+
+        var ofrece = string.IsNullOrWhiteSpace(p.Ofrece) ? "" : $" Allí puedes encontrar {p.Ofrece}.";
+
+        return $"{intro}{ofrece} Si quieres más detalles de {p.Nombre}, pregúntame.";
+    }
+
+    private static string TextoLado(GeoUtil.Lado lado) => lado switch
+    {
+        GeoUtil.Lado.Derecha => "a la derecha",
+        GeoUtil.Lado.Izquierda => "a la izquierda",
+        _ => "al frente"
+    };
+
+    // Contexto que viaja al chatbot. A propósito NO incluye coordenadas del usuario (privacidad).
+    private string ConstruirContexto(string? ultimoPueblo)
+    {
+        var baseTexto = $"Viaje en curso del itinerario «{itinerario?.Nombre}». Ruta de paradas: {string.Join(" → ", paradas.Select(p => p.Nombre))}.";
+        return ultimoPueblo is null
+            ? baseTexto
+            : $"{baseTexto} Último pueblo anunciado durante el viaje: {ultimoPueblo}.";
+    }
+
+    private static string FormatearDuracion(double minutos)
+    {
+        var total = (int)Math.Round(minutos);
+        var h = total / 60;
+        var m = total % 60;
+        return h > 0 ? $"{h} h {m} min" : $"{m} min";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (mapaIniciado) await JS.InvokeVoidAsync("TurismoConectaViaje.destruir");
+        }
+        catch
+        {
+            // La conexión con el navegador ya pudo haberse cerrado; no pasa nada.
+        }
+
+        referencia?.Dispose();
+    }
+}
