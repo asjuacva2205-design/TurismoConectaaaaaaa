@@ -1,0 +1,16 @@
+<span class="estrellas" role="img" aria-label="@($"{Valor:0.#} de 5 estrellas")">
+    @for (int i = 1; i <= 5; i++)
+    {
+        <i class="@ClaseEstrella(i)" aria-hidden="true"></i>
+    }
+</span>
+
+@code {
+    [Parameter] public double Valor { get; set; }
+
+    // Llena, media o vacía según el valor (p. ej. 3.5 → 3 llenas, 1 media, 1 vacía)
+    private string ClaseEstrella(int posicion) =>
+        Valor >= posicion ? "ph-fill ph-star"
+        : Valor >= posicion - 0.5 ? "ph-fill ph-star-half"
+        : "ph ph-star";
+}

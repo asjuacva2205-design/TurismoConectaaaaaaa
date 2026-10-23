@@ -10,7 +10,7 @@ h1, h2 {
 .inicio-page {
     min-height: 100vh;
     background: #FBF8F1;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 /* ---------- NAVBAR ---------- */
@@ -983,6 +983,55 @@ h1, h2 {
     margin: 0;
 }
 
+a.valor-card,
+.valor-card-pronto {
+    display: block;
+    padding: 1.5rem 1rem;
+    border-radius: 16px;
+    color: inherit;
+    text-decoration: none;
+    transition: transform .25s ease, background .25s ease, box-shadow .25s ease;
+}
+
+    a.valor-card:hover {
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(22, 48, 28, .08);
+    }
+
+.valor-enlace {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: .9rem;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #bc3e29;
+}
+
+    .valor-enlace i {
+        transition: transform .2s ease;
+    }
+
+a.valor-card:hover .valor-enlace i {
+    transform: translateX(3px);
+}
+
+.valor-card-pronto {
+    opacity: .7;
+}
+
+.valor-pronto {
+    display: inline-block;
+    margin-top: .9rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #EFE9DA;
+    color: #6b6450;
+    font-size: .7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
 .franja-movil-contenedor {
     overflow: hidden;
     width: 100%;
@@ -1488,4 +1537,26 @@ a.destino-cta {
     .mensaje-busqueda-ir:hover {
         background: #F2E6C9;
         transform: translateX(2px);
+    }
+
+
+
+
+/* Filtros dentro del rail inmersivo (fondo oscuro) */
+.rail-filtros .filtro-maravilla-btn {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(255, 255, 255, .25);
+    color: #F3EEE2;
+}
+
+    .rail-filtros .filtro-maravilla-btn:hover {
+        background: rgba(255, 255, 255, .16);
+        border-color: #E0A44A;
+    }
+
+    .rail-filtros .filtro-maravilla-btn.activo {
+        background: #E0A44A;
+        border-color: #E0A44A;
+        color: #16301C;
+        box-shadow: none;
     }

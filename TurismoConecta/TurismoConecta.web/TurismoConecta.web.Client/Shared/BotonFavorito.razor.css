@@ -1,0 +1,30 @@
+.btn-favorito {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .7);
+    background: rgba(0, 0, 0, .25);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+}
+
+    .btn-favorito:hover {
+        background: rgba(0, 0, 0, .4);
+    }
+
+    .btn-favorito:active {
+        transform: scale(.97);
+    }
+
+    .btn-favorito.activo i {
+        color: #e5484d;
+    }
+
+    .btn-favorito:disabled {
+        opacity: .6;
+        cursor: wait;
+    }

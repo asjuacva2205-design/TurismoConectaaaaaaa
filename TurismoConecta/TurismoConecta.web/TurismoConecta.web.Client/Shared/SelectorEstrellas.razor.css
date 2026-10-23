@@ -1,0 +1,31 @@
+.selector-estrellas {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.estrella-btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    font-size: 1.7rem;
+    line-height: 1;
+    color: #CFC8BA;
+    cursor: pointer;
+    transition: transform 0.12s ease, color 0.12s ease;
+}
+
+.estrella-btn.llena { color: #C9A227; }
+.estrella-btn:hover { transform: scale(1.12); }
+
+.estrella-btn:focus-visible {
+    outline: 2px solid var(--acento-bosque, #213B31);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.selector-texto {
+    margin-left: 10px;
+    font-size: 0.85rem;
+    color: var(--txt-secundario, #5A6961);
+}

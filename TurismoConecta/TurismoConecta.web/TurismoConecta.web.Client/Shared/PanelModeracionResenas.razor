@@ -1,0 +1,120 @@
+@inject ReseñaApiService ReseñaService
+
+@* HU-30: el admin municipal revisa las reseñas retenidas por el filtro y elimina las ofensivas *@
+<div class="panel-resenas">
+    @if (cargando)
+    {
+        <p class="panel-resenas-nota"><span class="spinner-panel"></span> Cargando reseñas...</p>
+    }
+    else if (reseñas.Count == 0)
+    {
+        <div class="panel-resenas-vacio">
+            <i class="ph ph-shield-check" aria-hidden="true"></i>
+            <p>Todavía no hay reseñas en tu municipio.</p>
+        </div>
+    }
+    else
+    {
+        <p class="panel-resenas-nota">
+            @if (Retenidas > 0)
+            {
+                <strong>@Retenidas retenida@(Retenidas != 1 ? "s" : "") por el filtro</strong>
+                <span> · </span>
+            }
+            Últimas @reseñas.Count reseñas del municipio
+        </p>
+
+        @if (!string.IsNullOrEmpty(error))
+        {
+            <p class="panel-resena-error">@error</p>
+        }
+
+        <ul class="panel-resenas-lista">
+            @foreach (var reseña in reseñas)
+            {
+                var r = reseña;
+                <li class="panel-resena @(r.Moderada ? "" : "retenida")" @key="r.IdReseña">
+                    <div class="panel-resena-cabecera">
+                        <div>
+                            <strong>@r.NombreLugar</strong>
+                            <span class="panel-resena-meta">@r.NombreUsuario · @r.FechaCreacion.ToString("dd MMM yyyy")</span>
+                        </div>
+                        <EstrellasCalificacion Valor="r.Calificacion" />
+                    </div>
+
+                    @if (!r.Moderada)
+                    {
+                        <span class="chip-retenida">
+                            <i class="ph-fill ph-warning" aria-hidden="true"></i> Oculta: el filtro detectó contenido sospechoso
+                        </span>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(r.Comentario))
+                    {
+                        <p class="panel-resena-comentario">@r.Comentario</p>
+                    }
+
+                    <div class="panel-resena-acciones">
+                        @if (confirmandoEliminar == r.IdReseña)
+                        {
+                            <span class="panel-resena-pregunta">¿Eliminar definitivamente?</span>
+                            <button type="button" class="btn-panel-secundario" @onclick="() => confirmandoEliminar = null" disabled="@procesando">No</button>
+                            <button type="button" class="btn-panel-peligro" @onclick="() => Eliminar(r)" disabled="@procesando">Sí, eliminar</button>
+                        }
+                        else
+                        {
+                            @if (!r.Moderada)
+                            {
+                                <button type="button" class="btn-panel-primario" @onclick="() => Aprobar(r)" disabled="@procesando">
+                                    <i class="ph ph-check" aria-hidden="true"></i> Publicar
+                                </button>
+                            }
+                            <button type="button" class="btn-panel-enlace peligro" @onclick="() => confirmandoEliminar = r.IdReseña" disabled="@procesando">
+                                <i class="ph ph-trash" aria-hidden="true"></i> Eliminar
+                            </button>
+                        }
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private List<ReseñaDto> reseñas = new();
+    private bool cargando = true;
+    private bool procesando;
+    private int? confirmandoEliminar;
+    private string? error;
+
+    private int Retenidas => reseñas.Count(r => !r.Moderada);
+
+    protected override async Task OnInitializedAsync()
+    {
+        reseñas = await ReseñaService.ListarParaModeracionAsync();
+        cargando = false;
+    }
+
+    private async Task Aprobar(ReseñaDto reseña)
+    {
+        error = null;
+        procesando = true;
+        var (exito, mensaje) = await ReseñaService.AprobarAsync(reseña.IdReseña);
+        procesando = false;
+
+        if (exito) reseña.Moderada = true;
+        else error = mensaje;
+    }
+
+    private async Task Eliminar(ReseñaDto reseña)
+    {
+        error = null;
+        procesando = true;
+        var (exito, mensaje) = await ReseñaService.EliminarAsync(reseña.IdReseña);
+        procesando = false;
+        confirmandoEliminar = null;
+
+        if (exito) reseñas.Remove(reseña);
+        else error = mensaje;
+    }
+}

@@ -47,6 +47,13 @@ namespace TurismoConecta.api.Controllers
         public async Task<IActionResult> Pendientes() =>
             Ok(await _negocioService.ListarPendientesAsync(UsuarioActual));
 
+        // KPIs del dashboard municipal (aprobados / pendientes / rechazados)
+        [HttpGet("resumen")]
+        [Authorize(Roles = Roles.AdminGeneral + "," + Roles.AdminMunicipio)]
+        public async Task<IActionResult> Resumen() =>
+            Ok(await _negocioService.ObtenerResumenAsync(UsuarioActual));
+
+
         [HttpGet("por-municipio/{idMunicipio:int}")]
         [AllowAnonymous]
         public async Task<IActionResult> PorMunicipio(int idMunicipio, [FromQuery] int? idCategoria) =>

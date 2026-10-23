@@ -1,0 +1,162 @@
+/* Hereda la paleta de la ficha (--acento-bosque, etc.); los segundos valores son de respaldo */
+
+/* ── Cargando / vacío ── */
+.resenas-cargando {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--txt-secundario, #5A6961);
+    font-size: 0.9rem;
+}
+
+.spinner-resenas {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--borde-divisor, #E4DFD5);
+    border-top-color: var(--acento-bosque, #213B31);
+    border-radius: 50%;
+    animation: girar-resenas 0.8s linear infinite;
+}
+
+@keyframes girar-resenas { to { transform: rotate(360deg); } }
+
+.resenas-vacio {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 24px;
+    background: var(--superficie, #FFFFFF);
+    border: 1px dashed var(--borde-card, #EAE6DF);
+    border-radius: 6px;
+    color: var(--txt-secundario, #5A6961);
+}
+
+.resenas-vacio i { font-size: 1.6rem; color: var(--acento-tierra, #9E5B3D); }
+.resenas-vacio p { margin: 0; }
+
+/* ── Resumen ── */
+.resenas-resumen {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.resumen-promedio {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 3rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--acento-bosque, #213B31);
+}
+
+.resumen-total {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: var(--txt-secundario, #5A6961);
+}
+
+/* ── Lista ── */
+.resenas-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 14px;
+}
+
+.resena-item {
+    background: var(--superficie, #FFFFFF);
+    border: 1px solid var(--borde-card, #EAE6DF);
+    border-radius: 8px;
+    padding: 18px 20px;
+}
+
+.resena-cabecera {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.resena-avatar {
+    flex: 0 0 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--acento-bosque, #213B31);
+    color: #FFFFFF;
+    font-weight: 600;
+}
+
+.resena-autor {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.resena-autor strong { font-size: 0.92rem; }
+
+.resena-fecha {
+    font-size: 0.75rem;
+    color: var(--txt-secundario, #5A6961);
+}
+
+.resena-comentario {
+    margin: 12px 0 0;
+    line-height: 1.6;
+    color: var(--txt-principal, #1E2B25);
+    overflow-wrap: anywhere;
+}
+
+/* ── Respuesta del dueño ── */
+.resena-respuesta {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--acento-tierra, #9E5B3D);
+    background: var(--fondo, #FBF9F5);
+    border-radius: 0 6px 6px 0;
+}
+
+.respuesta-etiqueta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--acento-tierra, #9E5B3D);
+}
+
+.resena-respuesta p { margin: 6px 0 0; font-size: 0.9rem; }
+
+/* ── Ver más ── */
+.btn-ver-mas-resenas {
+    margin-top: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid var(--acento-bosque, #213B31);
+    color: var(--acento-bosque, #213B31);
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.btn-ver-mas-resenas:hover {
+    background: var(--acento-bosque, #213B31);
+    color: #FFFFFF;
+}
+
+/* ── Versión compacta (modal del negocio) ── */
+.compacta .resumen-promedio { font-size: 2.2rem; }
+.compacta .resena-item { padding: 14px 16px; }
+
+@media (max-width: 600px) {
+    .resena-cabecera { flex-wrap: wrap; }
+}

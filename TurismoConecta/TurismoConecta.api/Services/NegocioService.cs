@@ -208,6 +208,37 @@ namespace TurismoConecta.api.Services
                 .ToList();
         }
 
+        // KPIs del dashboard: conteo por estado, 
+        // (AdminGeneral ve todo; AdminMunicipio solo su municipio asignado)
+        public async Task<NegocioResumenDto> ObtenerResumenAsync(int idAdminMunicipal)
+        {
+            var admin = await _context.Usuarios.Include(u => u.IdRolNavigation).FirstOrDefaultAsync(u => u.IdUsuario == idAdminMunicipal);
+            if (admin is null) return new NegocioResumenDto();
+
+            IQueryable<Negocio> query = _context.Negocios;
+
+            bool esSuperAdmin = admin.IdRolNavigation?.Nombre == Roles.AdminGeneral;
+            if (!esSuperAdmin)
+            {
+                if (admin.MunicipioAsignadoId is null) return new NegocioResumenDto();
+                query = query.Where(n => n.IdMunicipio == admin.MunicipioAsignadoId);
+            }
+
+            var conteos = await query
+                .GroupBy(n => n.Estado)
+                .Select(g => new { Estado = g.Key, Total = g.Count() })
+                .ToListAsync();
+
+            int Contar(string estado) => conteos.Where(c => c.Estado == estado).Sum(c => c.Total);
+
+            return new NegocioResumenDto
+            {
+                Aprobados = Contar(EstadosNegocio.Aprobado),
+                Pendientes = Contar(EstadosNegocio.Pendiente),
+                Rechazados = Contar(EstadosNegocio.Rechazado)
+            };
+        }
+
         public async Task<NegocioDto?> ObtenerFichaAsync(int idNegocio)
         {
             var n = await _context.Negocios

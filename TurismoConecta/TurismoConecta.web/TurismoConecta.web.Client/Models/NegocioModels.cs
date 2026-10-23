@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using TurismoConecta.web.Client.Constants; 
 
 namespace TurismoConecta.web.Client.Models
 {
@@ -7,7 +8,7 @@ namespace TurismoConecta.web.Client.Models
         public int IdNegocio { get; set; }
         public string Nombre { get; set; } = string.Empty;
         public string? Descripcion { get; set; }
-        public string Estado { get; set; } = "Pendiente"; // Pendiente, Aprobado, Rechazado
+        public string Estado { get; set; } = EstadosNegocio.Pendiente; 
         public int IdCategoria { get; set; }
         public int IdMunicipio { get; set; }
         public string? NombreMunicipio { get; set; }
@@ -88,5 +89,14 @@ namespace TurismoConecta.web.Client.Models
         public string Nombre { get; set; } = string.Empty;
         public string? Icono { get; set; }
     }
+
+    public class NegocioConteoEstadosDto
+    {
+        public int Aprobados { get; set; }
+        public int Pendientes { get; set; }
+        public int Rechazados { get; set; }
+        public int Total { get; set; }
+    }
+
 }
 

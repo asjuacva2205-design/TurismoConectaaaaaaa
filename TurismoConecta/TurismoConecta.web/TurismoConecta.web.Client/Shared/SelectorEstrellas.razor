@@ -1,0 +1,44 @@
+<div class="selector-estrellas" role="radiogroup" aria-label="Calificación de 1 a 5 estrellas"
+     @onmouseleave="() => resaltada = 0">
+    @for (int i = 1; i <= 5; i++)
+    {
+        var valor = i;
+        var llena = valor <= Mostrada;
+        <button type="button"
+                role="radio"
+                aria-checked="@(Valor == valor ? "true" : "false")"
+                aria-label="@valor estrella@(valor > 1 ? "s" : "")"
+                class="estrella-btn @(llena ? "llena" : "")"
+                @onmouseenter="() => resaltada = valor"
+                @onclick="() => Elegir(valor)">
+            <i class="@(llena ? "ph-fill" : "ph") ph-star" aria-hidden="true"></i>
+        </button>
+    }
+    <span class="selector-texto">@Texto(Mostrada)</span>
+</div>
+
+@code {
+    // Se usa con @bind-Valor="miVariable"
+    [Parameter] public int Valor { get; set; }
+    [Parameter] public EventCallback<int> ValorChanged { get; set; }
+
+    private int resaltada;   // estrella bajo el mouse (0 = ninguna)
+
+    private int Mostrada => resaltada > 0 ? resaltada : Valor;
+
+    private Task Elegir(int valor)
+    {
+        Valor = valor;
+        return ValorChanged.InvokeAsync(valor);
+    }
+
+    private static string Texto(int valor) => valor switch
+    {
+        1 => "Malo",
+        2 => "Regular",
+        3 => "Bueno",
+        4 => "Muy bueno",
+        5 => "Excelente",
+        _ => "Elige de 1 a 5"
+    };
+}

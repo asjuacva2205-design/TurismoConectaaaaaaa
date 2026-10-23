@@ -1,0 +1,58 @@
+@using TurismoConecta.web.Client.Services
+@using TurismoConecta.web.Client.Models
+@inject FavoritoApiService FavoritoService
+
+<section class="mis-favoritos">
+    <h3>Mis favoritos</h3>
+
+    @if (cargando)
+    {
+        <p class="fav-vacio">Cargando…</p>
+    }
+    else if (favoritos.Count == 0)
+    {
+        <p class="fav-vacio">Aún no guardas municipios ni negocios. Usa el botón ♥ en cada ficha.</p>
+    }
+    else
+    {
+        <ul>
+            @foreach (var f in favoritos)
+            {
+                <li>
+                    @if (f.IdMunicipio is not null)
+                    {
+                        <i class="ph ph-map-pin"></i>
+                        <a href="/municipios/@f.IdMunicipio">@f.NombreMunicipio</a>
+                    }
+                    else
+                    {
+                        <i class="ph ph-storefront"></i>
+                        <span>@f.NombreNegocio</span>
+                    }
+                    <small>@f.FechaGuardado.ToString("dd/MM/yyyy")</small>
+                    <button type="button" class="fav-quitar" title="Quitar" @onclick="() => Quitar(f)">
+                        <i class="ph ph-x"></i>
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    private List<FavoritoItemDto> favoritos = new();
+    private bool cargando = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        favoritos = await FavoritoService.ListarMiosAsync();
+        cargando = false;
+    }
+
+    // El toggle sobre un favorito existente lo elimina
+    private async Task Quitar(FavoritoItemDto f)
+    {
+        var (exito, _, _) = await FavoritoService.ToggleAsync(f.IdMunicipio, f.IdNegocio);
+        if (exito) favoritos.Remove(f);
+    }
+}

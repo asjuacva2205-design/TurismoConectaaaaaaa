@@ -263,158 +263,50 @@
             </article>
         </section>
 
-        @* ═══════════════ MARAVILLAS DE BOYACÁ (desde la BD) ═══════════════ *@
-        <section class="destinos-page" id="donde-ir">
-            <div class="destinos-heading">
-                <span class="eyebrow">MARAVILLAS DE BOYACÁ</span>
-                <h1>Tesoros Naturales, Lagos y Monumentos</h1>
-                <p>Explora los lagos legendarios, cumbres nevadas, páramos mágicos, monumentos históricos y pueblos coloniales de nuestra tierra.</p>
+       
 
-                @if (categoriasSitio.Count > 0)
-                {
-                    <div class="destinos-filtros-bar" role="group" aria-label="Filtrar por categoría">
-                        <button type="button"
-                                class="filtro-maravilla-btn @(categoriaSeleccionada is null ? "activo" : "")"
-                                @onclick="() => SeleccionarCategoria(null)">
-                            Todos
-                        </button>
-
-                        @foreach (var cat in categoriasSitio)
-                        {
-                            <button type="button"
-                                    class="filtro-maravilla-btn @(categoriaSeleccionada == cat.IdCategoria ? "activo" : "")"
-                                    @onclick="() => SeleccionarCategoria(cat.IdCategoria)">
-                                @if (!string.IsNullOrWhiteSpace(cat.Icono))
-                                {
-                                    <i class="@cat.Icono" aria-hidden="true"></i>
-                                }
-                                @cat.Nombre
-                            </button>
-                        }
-                    </div>
-                }
-            </div>
-
+            @* ═══════════════ MARAVILLAS DE BOYACÁ: rail inmersivo ═══════════════ *@
             @if (cargandoSitios)
             {
-                <div class="destinos-skeleton-fila" aria-busy="true">
-                    @for (var i = 0; i < 4; i++)
-                    {
-                        <div class="destino-skeleton"></div>
-                    }
-                </div>
-            }
-            else if (sitiosFiltrados.Count == 0)
-            {
-                <p class="estado-vacio-claro">
-                    Aún no hay sitios turísticos publicados en esta categoría.
-                </p>
+                <section class="destinos-page" id="donde-ir">
+                    <div class="destinos-skeleton-fila" aria-busy="true">
+                        @for (var i = 0; i < 4; i++)
+                        {
+                            <div class="destino-skeleton"></div>
+                        }
+                    </div>
+                </section>
             }
             else
             {
-                <div class="destinos-marquee" aria-label="Maravillas y atractivos de Boyacá">
-                    <div class="destinos-track @(carruselPausado || sitioSeleccionado is not null ? "pausado" : "")"
-                         @onmouseenter="() => carruselPausado = true"
-                         @onmouseleave="() => carruselPausado = false">
-
-                        @for (int i = 0; i < sitiosParaCarrusel.Count; i++)
+                <RailMaravillas Items="sitiosRail" Imagen="ImagenSitio" OnVerDetalle="AbrirDetalleSitio"
+                            Pausado="sitioSeleccionado is not null">
+                    <Filtros>
+                        @if (categoriasSitio.Count > 0)
                         {
-                            var item = sitiosParaCarrusel[i];
-
-                            <article class="destino-frame" @key="i">
-                                <div class="destino-link"
-                                     role="button"
-                                     tabindex="0"
-                                     aria-label="Ver detalles de @item.Nombre"
-                                     @onclick="() => AbrirDetalleSitio(item)"
-                                     @onkeydown="e => TeclaEnCard(e, item)">
-
-                                    <div class="destino-image-wrap">
-                                        <img src="@ImagenSitio(item.ImagenUrl)"
-                                             alt="@item.Nombre"
-                                             class="destino-image"
-                                             loading="lazy" />
-
-                                        @if (!string.IsNullOrWhiteSpace(item.NombreCategoria))
+                            <div class="destinos-filtros-bar rail-filtros" role="group" aria-label="Filtrar por categoría">
+                                <button type="button"
+                                        class="filtro-maravilla-btn @(categoriaSeleccionada is null ? "activo" : "")"
+                                        @onclick="() => SeleccionarCategoria(null)">
+                                    Todos
+                                </button>
+                                @foreach (var cat in categoriasSitio)
+                                {
+                                    <button type="button"
+                                            class="filtro-maravilla-btn @(categoriaSeleccionada == cat.IdCategoria ? "activo" : "")"
+                                            @onclick="() => SeleccionarCategoria(cat.IdCategoria)">
+                                        @if (!string.IsNullOrWhiteSpace(cat.Icono))
                                         {
-                                            <span class="destino-badge-categoria">
-                                                @if (!string.IsNullOrWhiteSpace(item.IconoCategoria))
-                                                {
-                                                    <i class="@item.IconoCategoria" aria-hidden="true"></i>
-                                                }
-                                                @item.NombreCategoria
-                                            </span>
+                                            <i class="@cat.Icono" aria-hidden="true"></i>
                                         }
-
-                                        @if (!string.IsNullOrWhiteSpace(item.Clima))
-                                        {
-                                            @* ◆ CAMBIO 5: termómetro (antes 🌡️) *@
-                                            <span class="destino-clima-tag">
-                                                <i class="ph ph-thermometer-simple" aria-hidden="true"></i> @item.Clima
-                                            </span>
-                                        }
-
-                                        <span class="destino-number">@NumeroTarjeta(i)</span>
-
-                                        <span class="destino-ver-detalle" aria-hidden="true">
-                                            <i class="ph ph-magnifying-glass-plus"></i> Ver detalles
-                                        </span>
-                                    </div>
-
-                                    <div class="destino-content">
-                                        <div class="destino-topline">
-                                            <h2>@item.Nombre</h2>
-                                            @if (item.Calificacion.HasValue)
-                                            {
-                                                @* ◆ CAMBIO 6: estrella (antes ★) *@
-                                                <span class="destino-rating">
-                                                    <i class="ph-fill ph-star" aria-hidden="true"></i> @item.Calificacion.Value.ToString("0.0")
-                                                </span>
-                                            }
-                                        </div>
-
-                                        @* ◆ CAMBIO 7: pin de ubicación (antes 📍 dentro del texto) *@
-                                        <span class="destino-category">
-                                            <i class="ph-fill ph-map-pin" aria-hidden="true"></i> @TextoUbicacion(item)
-                                        </span>
-
-                                        <p class="destino-descripcion">@item.Descripcion</p>
-
-                                        <a href="@UrlMunicipio(item.IdMunicipio)"
-                                           class="destino-cta"
-                                           @onclick:stopPropagation>
-                                            Visitar @item.NombreMunicipio <span aria-hidden="true">→</span>
-                                        </a>
-                                    </div>
-                                </div>
-                            </article>
+                                        @cat.Nombre
+                                    </button>
+                                }
+                            </div>
                         }
-                    </div>
-                </div>
-
-                <div class="destinos-footer">
-                    <div class="controles-maravillas">
-                        @* ◆ CAMBIO 8: play / pausa (antes ▶ y ⏸) *@
-                        <button type="button"
-                                class="btn-control-maravilla"
-                                @onclick="() => carruselPausado = !carruselPausado"
-                                title="@(carruselPausado ? "Reanudar rotación" : "Pausar rotación")">
-                            @if (carruselPausado)
-                            {
-                                <i class="ph-fill ph-play" aria-hidden="true"></i>
-                                <span>Reanudar rotación</span>
-                            }
-                            else
-                            {
-                                <i class="ph-fill ph-pause" aria-hidden="true"></i>
-                                <span>Pausar rotación</span>
-                            }
-                        </button>
-                    </div>
-                    <p>Haz clic en una tarjeta para ver los detalles del destino</p>
-                </div>
+                    </Filtros>
+                </RailMaravillas>
             }
-        </section>
 
         <div class="centrar-boton">
             <a href="/municipios" class="boton-principal">
@@ -578,33 +470,45 @@
     @* *@
     <section class="valores-section">
         <div class="valores-grid">
-            <div class="valor-card">
+            <a href="/municipios" class="valor-card">
                 <span class="valor-icono"><i class="ph ph-map-trifold" aria-hidden="true"></i></span>
                 <h3>Catálogo completo</h3>
-                <p>Información verificada de los municipios: historia, clima, fechas y actividades.</p>
-            </div>
-            <div class="valor-card">
+                <p>@(totalMunicipios ?? 0) municipios con su historia, clima, fiestas y actividades.</p>
+                <span class="valor-enlace">Ver catálogo <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a href="/itinerarios/crear" class="valor-card">
                 <span class="valor-icono"><i class="ph ph-compass" aria-hidden="true"></i></span>
                 <h3>Itinerarios a tu medida</h3>
                 <p>Arma tu recorrido entre varios pueblos y compártelo con quien quieras viajar contigo.</p>
-            </div>
-            <div class="valor-card">
+                <span class="valor-enlace">Crear itinerario <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a href="/municipios" class="valor-card">
                 <span class="valor-icono"><i class="ph ph-buildings" aria-hidden="true"></i></span>
                 <h3>Negocios verificados</h3>
-                <p>Hoteles, restaurantes y artesanos aprobados por la administración de cada municipio.</p>
-            </div>
-            <div class="valor-card">
+                <p>Hoteles, restaurantes y artesanos aprobados por cada municipio. Los encuentras en su ficha.</p>
+                <span class="valor-enlace">Elegir un destino <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a href="/municipios" class="valor-card">
                 <span class="valor-icono"><i class="ph ph-star" aria-hidden="true"></i></span>
                 <h3>Reseñas reales</h3>
                 <p>Opiniones de otros viajeros para que decidas con información de primera mano.</p>
-            </div>
+                <span class="valor-enlace">Leer opiniones <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
         </div>
     </section>
 
     <section class="cta-final">
         <h2>Tu próximo viaje por Boyacá empieza aquí</h2>
-        <p>Crea tu cuenta gratis y guarda tus municipios y negocios favoritos.</p>
-        <a href="/register" class="boton-principal">Crear cuenta gratis</a>
+        <AuthorizeView>
+            <Authorized>
+                <p>Revisa los municipios y negocios que guardaste con ♥.</p>
+                <a href="/perfil" class="boton-principal">Ver mis favoritos</a>
+            </Authorized>
+            <NotAuthorized>
+                <p>Crea tu cuenta gratis y guarda tus municipios y negocios favoritos.</p>
+                <a href="/register" class="boton-principal">Crear cuenta gratis</a>
+            </NotAuthorized>
+        </AuthorizeView>
     </section>
 
     <footer class="inicio-footer">
@@ -727,7 +631,7 @@
     private List<SitioTuristicoDto> sitiosTuristicos = new();
     private List<CategoriaDto> categoriasSitio = new();
     private int? categoriaSeleccionada;
-    private bool carruselPausado;
+    
 
     private SitioTuristicoDto? sitioSeleccionado;
     private ElementReference botonCerrarModal;
@@ -738,10 +642,11 @@
             ? sitiosTuristicos
             : sitiosTuristicos.Where(s => s.IdCategoria == categoriaSeleccionada).ToList();
 
-    private List<SitioTuristicoDto> sitiosParaCarrusel =>
-        sitiosFiltrados.Count > 0
-            ? sitiosFiltrados.Concat(sitiosFiltrados).ToList()
-            : new();
+    // Todas las cartas del rail, destacados primero (el rail solo dibuja las cercanas)
+    private List<SitioTuristicoDto> sitiosRail =>
+        sitiosFiltrados.OrderByDescending(s => s.Destacado).ToList();
+
+          
 
     private void SeleccionarCategoria(int? idCategoria) => categoriaSeleccionada = idCategoria;
 
@@ -773,8 +678,7 @@
             ? ApiConfig.ImagenPorDefecto
             : Api.Url(imagenUrl);
 
-    private string NumeroTarjeta(int indice) =>
-        ((indice % sitiosFiltrados.Count) + 1).ToString("00");
+   
 
     // ◆ CAMBIO 15a: sin 📍 (el ícono ahora va en el HTML, CAMBIO 7)
     private static string TextoUbicacion(SitioTuristicoDto sitio) =>
@@ -929,10 +833,7 @@
 
     private void CerrarDetalleSitio() => sitioSeleccionado = null;
 
-    private void TeclaEnCard(KeyboardEventArgs e, SitioTuristicoDto sitio)
-    {
-        if (e.Key == "Enter") AbrirDetalleSitio(sitio);
-    }
+    
 
     private void TeclaEnModal(KeyboardEventArgs e)
     {

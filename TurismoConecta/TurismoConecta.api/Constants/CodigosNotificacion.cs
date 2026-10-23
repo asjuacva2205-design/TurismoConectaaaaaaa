@@ -14,5 +14,9 @@ namespace TurismoConecta.api.Constants
         public const string NegocioRechazado = "NEGOCIO_RECHAZADO";
         public const string NegocioPendiente = "NEGOCIO_PENDIENTE";
 
+        // HU-28 / HU-29 (NotificacionService crea el tipo en la BD si aún no existe)
+        public const string ReseñaNueva = "RESENA_NUEVA";
+        public const string ReseñaRespondida = "RESENA_RESPONDIDA";
+
     }
 }

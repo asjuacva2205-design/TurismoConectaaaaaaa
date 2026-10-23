@@ -1645,3 +1645,15 @@
         color: #000;
     }
 
+
+
+.hero-acciones {
+    align-self: flex-start;
+    margin-top: 18px;
+}
+
+.modal-negocio-fav {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+}

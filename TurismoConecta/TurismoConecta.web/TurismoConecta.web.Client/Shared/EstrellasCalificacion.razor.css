@@ -1,0 +1,7 @@
+.estrellas {
+    display: inline-flex;
+    gap: 2px;
+    color: #C9A227;
+    font-size: 0.95rem;
+    line-height: 1;
+}

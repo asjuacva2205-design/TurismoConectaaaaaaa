@@ -102,7 +102,7 @@
         <!-- HERO EDITORIAL CON FOTOGRAFÍA CURADA -->
         <section class="selva-hero">
             <div class="hero-imagen-wrapper">
-                @* ◆ BUG CORREGIDO: el onerror quedaba FUERA de la etiqueta y se veía como texto *@
+                
                 <img src="@Api.ImagenMunicipio(ficha.Nombre, ficha.ImagenUrl)"
                      alt="@ficha.Nombre, Boyacá"
                      class="hero-imagen"
@@ -113,6 +113,9 @@
             <div class="hero-contenido-centrado">
                 <span class="hero-categoria-badge">Boyacá Profunda</span>
                 <h1 class="hero-titulo">@ficha.Nombre</h1>
+                <div class="hero-acciones">
+                    <BotonFavorito IdMunicipio="ficha.IdMunicipio" />
+                </div>
 
                 <!-- METADATOS DISCRETOS: CLIMA Y UBICACIÓN -->
                 <div class="hero-meta-discreta">
@@ -374,11 +377,23 @@
 
             <div class="divisor-seccion"></div>
 
-            <!-- SECCIÓN 5: UBICACIÓN GEOGRÁFICA -->
+            <!-- SECCIÓN 5: OPINIONES DE VIAJEROS (HU-28) -->
+            <section class="bloque-contenido">
+                <div class="bloque-cabecera">
+                    <span class="bloque-indice">05</span>
+                    <h2 class="bloque-titulo">Opiniones de Viajeros</h2>
+                </div>
+
+                <ListaResenas IdMunicipio="ficha.IdMunicipio" NombreLugar="@ficha.Nombre" />
+            </section>
+
+            <div class="divisor-seccion"></div>
+
+            <!-- SECCIÓN 6: UBICACIÓN GEOGRÁFICA -->
             <section class="bloque-contenido">
                 <div class="bloque-cabecera-flex">
                     <div class="bloque-titulo-agrupado">
-                        <span class="bloque-indice">05</span>
+                        <span class="bloque-indice">06</span>
                         <h2 class="bloque-titulo">Ubicación Geográfica</h2>
                     </div>
                     @* ◆ ICONO: abrir fuera (antes ↗) *@
@@ -404,10 +419,10 @@
             {
                 <div class="divisor-seccion"></div>
 
-                <!-- SECCIÓN 6: HISTORIA Y MEMORIA -->
+                <!-- SECCIÓN 7: HISTORIA Y MEMORIA -->
                 <section class="bloque-contenido">
                     <div class="bloque-cabecera">
-                        <span class="bloque-indice">06</span>
+                        <span class="bloque-indice">07</span>
                         <h2 class="bloque-titulo">Historia y Memoria</h2>
                     </div>
                     <p class="parrafo-editorial">@ficha.Historia</p>
@@ -457,6 +472,9 @@
                                  class="modal-foto-principal"
                                  onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop';" />
                             <div class="modal-foto-scrim">
+                                <div class="modal-negocio-fav">
+                                    <BotonFavorito IdNegocio="negocioModal.IdNegocio" />
+                                </div>
                                 <span class="modal-negocio-cat-tag">@negocioModal.NombreCategoria</span>
                                 <h2 class="modal-negocio-titulo">@negocioModal.Nombre</h2>
                             </div>
@@ -566,6 +584,12 @@
                                 }
                             </div>
                         }
+
+                        <!-- OPINIONES DEL ESTABLECIMIENTO (HU-28 / HU-29) -->
+                        <div class="modal-negocio-seccion">
+                            <span class="modal-subtitulo-label">Opiniones de visitantes</span>
+                            <ListaResenas IdNegocio="negocioModal.IdNegocio" NombreLugar="@negocioModal.Nombre" Compacta="true" />
+                        </div>
 
                         <!-- BOTONES DE ACCIÓN RÁPIDA: WHATSAPP Y LLAMADA -->
                         @* ◆ ICONOS: 💬 📞 🗺️ → Phosphor *@

@@ -96,6 +96,12 @@
             abierta = false;
             Nav.NavigateTo("/establecimientos/pendientes");
         }
+        // Una reseña nueva se responde desde el panel del comerciante
+        else if (notificacion.Codigo == CodigosNotificacion.ReseñaNueva)
+        {
+            abierta = false;
+            Nav.NavigateTo("/comercio/dashboard");
+        }
     }
 
     private Task MarcarTodas() => Notif.MarcarTodasLeidasAsync();
@@ -109,6 +115,8 @@
         CodigosNotificacion.FavoritoNuevo => "ph-fill ph-heart",
         CodigosNotificacion.PromoNegocio => "ph-fill ph-megaphone",
         CodigosNotificacion.InfoGeneral => "ph-fill ph-info",
+        CodigosNotificacion.ReseñaNueva => "ph-fill ph-star",
+        CodigosNotificacion.ReseñaRespondida => "ph-fill ph-chat-circle-text",
         _ => "ph ph-bell"
     };
 
@@ -120,6 +128,8 @@
         CodigosNotificacion.NegocioPendiente => "tipo-promo",
         CodigosNotificacion.FavoritoNuevo => "tipo-favorito",
         CodigosNotificacion.PromoNegocio => "tipo-promo",
+        CodigosNotificacion.ReseñaNueva => "tipo-promo",
+        CodigosNotificacion.ReseñaRespondida => "tipo-exito",
         _ => ""
     };
 

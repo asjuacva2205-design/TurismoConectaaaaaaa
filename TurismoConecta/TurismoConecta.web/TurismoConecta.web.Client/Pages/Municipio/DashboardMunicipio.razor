@@ -237,6 +237,12 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- MODERACIÓN DE RESEÑAS (HU-30) -->
+                    <div class="muni-card muni-card-resenas">
+                        <h2 class="muni-card-titulo">Moderación de reseñas</h2>
+                        <PanelModeracionResenas />
+                    </div>
                 }
             </main>
         </div>
@@ -273,10 +279,17 @@
         if (mostrarCargando) cargando = true;
         try
         {
-            pendientes = await NegocioService.ListarPendientesAsync();
+            // Pendientes (lista) y KPIs (conteos) en paralelo
+            var tareaPendientes = NegocioService.ListarPendientesAsync();
+            var tareaResumen = NegocioService.ObtenerResumenAsync();
+            await Task.WhenAll(tareaPendientes, tareaResumen);
+
+            pendientes = tareaPendientes.Result;
+            var resumen = tareaResumen.Result;
+
             cantPendientes = pendientes.Count;
-            // Nota: para aprobados/rechazados se podría agregar endpoint futuro
-            // Por ahora mostramos los pendientes que tenemos
+            cantAprobados = resumen?.Aprobados ?? 0;
+            cantRechazados = resumen?.Rechazados ?? 0;
         }
         catch { }
         finally
@@ -284,6 +297,7 @@
             cargando = false;
         }
     }
+    
 
     // ◆ NUEVO: se ejecuta cuando SignalR entrega "NuevaNotificacion" a este usuario
     private void AlRecibirNotificacion(NotificacionDto notificacion)

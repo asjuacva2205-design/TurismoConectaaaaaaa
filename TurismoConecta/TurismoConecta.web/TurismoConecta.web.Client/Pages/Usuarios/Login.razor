@@ -67,18 +67,7 @@
                     </div>
 
 
-@code {
-   
-    private bool mostrarClave = false;
-    private string tipoInputClave = "password";
 
-    private void AlternarVisibilidadClave()
-    {
-        mostrarClave = !mostrarClave;
-        tipoInputClave = mostrarClave ? "text" : "password";
-    }
-
-}
 
                     <div class="forgot-password">
                         <a href="/recuperar-password">¿Olvidaste tu contraseña?</a>
@@ -136,6 +125,9 @@
 </div>
 
 @code {
+    // Página a la que volver tras iniciar sesión (la manda BotonFavorito)
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
     private LoginRequest modelo = new();
     private AuthResponse? respuesta;
     private string mensajeError = string.Empty;
@@ -168,15 +160,17 @@
                 await Task.Delay(800);
 
                 // Redirigir al dashboard según el rol del usuario
-                var destino = respuesta.Rol switch
-                {
-                    Roles.AdminGeneral => "/admin/dashboard",
-                    Roles.AdminMunicipio => "/municipio/dashboard",
-                    Roles.AdminEstablecimiento => "/comercio/dashboard",
-                    _                                  => "/"   // Turista → portal principal
-                };
+                // Si venía de una página (p. ej. el botón ♥), vuelve ahí; si no, al dashboard según el rol
+                var destino = EsRutaLocal(ReturnUrl)
+                    ? ReturnUrl!
+                    : respuesta.Rol switch
+                    {
+                        Roles.AdminGeneral => "/admin/dashboard",
+                        Roles.AdminMunicipio => "/municipio/dashboard",
+                        Roles.AdminEstablecimiento => "/comercio/dashboard",
+                        _ => "/"   // Turista → portal principal
+                    };
                 NavManager.NavigateTo(destino, forceLoad: true);
-
 
 
             }
@@ -194,4 +188,28 @@
             cargando = false;
         }
     }
+
+    
+
+    // Solo acepta rutas de nuestra web ("/algo"); rechaza "https://otro-sitio.com" y "//otro-sitio.com"
+    private static bool EsRutaLocal(string? url) =>
+        !string.IsNullOrWhiteSpace(url)
+        && url.StartsWith('/')
+        && !url.StartsWith("//")
+        && !url.StartsWith("/\\");
+
+
+
+}
+@code {
+   
+    private bool mostrarClave = false;
+    private string tipoInputClave = "password";
+
+    private void AlternarVisibilidadClave()
+    {
+        mostrarClave = !mostrarClave;
+        tipoInputClave = mostrarClave ? "text" : "password";
+    }
+
 }

@@ -1,0 +1,150 @@
+@inject ReseñaApiService ReseñaService
+@inject NavigationManager Nav
+
+<div class="form-resena">
+    @if (!autenticado)
+    {
+        <div class="form-resena-invitacion">
+            <p>¿Ya visitaste @NombreLugar? Cuéntales a otros viajeros cómo te fue.</p>
+            <button type="button" class="btn-resena-primario" @onclick="IrALogin">
+                <i class="ph ph-sign-in" aria-hidden="true"></i> Inicia sesión para opinar
+            </button>
+        </div>
+    }
+    else if (cargando)
+    {
+        @* Consultando si el usuario ya opinó: no mostramos nada para evitar parpadeos *@
+    }
+    else if (mia is not null)
+    {
+        <div class="form-resena-hecha @(mia.Moderada ? "" : "en-revision")">
+            <i class="@(mia.Moderada ? "ph-fill ph-check-circle" : "ph-fill ph-hourglass-medium")" aria-hidden="true"></i>
+            <p>
+                @(mia.Moderada
+                    ? "Ya compartiste tu opinión sobre este lugar. ¡Gracias!"
+                    : "Tu reseña quedó en revisión: la alcaldía la verificará antes de publicarla.")
+            </p>
+        </div>
+    }
+    else if (!abierto)
+    {
+        <button type="button" class="btn-resena-primario" @onclick="() => abierto = true">
+            <i class="ph ph-pencil-simple-line" aria-hidden="true"></i> Escribir una reseña
+        </button>
+    }
+    else
+    {
+        <div class="form-resena-caja">
+            <span class="form-resena-label">Tu calificación</span>
+            <SelectorEstrellas @bind-Valor="calificacion" />
+
+            <label class="form-resena-label" for="@idComentario">Tu experiencia <span>(opcional)</span></label>
+            <textarea id="@idComentario"
+                      class="form-resena-texto"
+                      rows="4"
+                      maxlength="@LargoMaximo"
+                      placeholder="¿Qué te gustó? ¿Qué le recomendarías a otros viajeros?"
+                      @bind="comentario"
+                      @bind:event="oninput"></textarea>
+            <span class="form-resena-contador">@(comentario?.Length ?? 0)/@LargoMaximo</span>
+
+            @if (!string.IsNullOrEmpty(error))
+            {
+                <p class="form-resena-error"><i class="ph ph-warning-circle" aria-hidden="true"></i> @error</p>
+            }
+
+            <div class="form-resena-acciones">
+                <button type="button" class="btn-resena-secundario" @onclick="Cancelar" disabled="@enviando">
+                    Cancelar
+                </button>
+                <button type="button" class="btn-resena-primario" @onclick="Publicar" disabled="@(enviando || calificacion == 0)">
+                    @(enviando ? "Publicando..." : "Publicar reseña")
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private const int LargoMaximo = 1000;   // igual que la columna "comentario" en SQL
+
+    [Parameter] public int? IdMunicipio { get; set; }
+    [Parameter] public int? IdNegocio { get; set; }
+    [Parameter] public string NombreLugar { get; set; } = "este lugar";
+
+    /// <summary>Avisa al padre (ListaResenas) para que muestre la reseña nueva sin recargar.</summary>
+    [Parameter] public EventCallback<ReseñaDto> AlPublicar { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private readonly string idComentario = $"resena-{Guid.NewGuid():N}";
+    private (int? Municipio, int? Negocio) cargadoPara;
+
+    private bool autenticado;
+    private bool cargando;
+    private bool abierto;
+    private bool enviando;
+    private ReseñaDto? mia;
+    private int calificacion;
+    private string? comentario;
+    private string? error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Solo recarga si cambió el lugar (p. ej. se abrió otro negocio en el modal)
+        if (cargadoPara == (IdMunicipio, IdNegocio)) return;
+        cargadoPara = (IdMunicipio, IdNegocio);
+
+        mia = null;
+        Cancelar();
+
+        autenticado = AuthState is not null
+            && (await AuthState).User.Identity?.IsAuthenticated == true;
+        if (!autenticado) return;
+
+        // HU-28: una reseña por lugar → si ya opinó, no le mostramos el formulario
+        cargando = true;
+        mia = await ReseñaService.ObtenerMiaAsync(IdMunicipio, IdNegocio);
+        cargando = false;
+    }
+
+    private async Task Publicar()
+    {
+        error = null;
+        enviando = true;
+
+        var (exito, creada, mensaje) = await ReseñaService.CrearAsync(new CrearReseñaRequest
+        {
+            IdMunicipio = IdMunicipio,
+            IdNegocio = IdNegocio,
+            Calificacion = calificacion,
+            Comentario = comentario
+        });
+
+        enviando = false;
+        if (!exito)
+        {
+            error = mensaje;
+            return;
+        }
+
+        mia = creada;
+        abierto = false;
+        if (creada is not null) await AlPublicar.InvokeAsync(creada);
+    }
+
+    private void Cancelar()
+    {
+        abierto = false;
+        calificacion = 0;
+        comentario = null;
+        error = null;
+    }
+
+    // Manda al login recordando la página actual, para volver aquí después
+    private void IrALogin()
+    {
+        var paginaActual = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(paginaActual)}");
+    }
+}
