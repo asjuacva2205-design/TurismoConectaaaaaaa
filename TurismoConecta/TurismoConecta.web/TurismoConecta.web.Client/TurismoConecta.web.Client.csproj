@@ -10,17 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Pages\Itinerarios\ModoViaje.razor.css" />
-  </ItemGroup>
-
-  
-
- 
-
-  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="10.0.13" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.13" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.13" />
+	<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.13" />
+	<PackageReference Include="Microsoft.AspNetCore.SignalR.Common" Version="10.0.13" />
+	<PackageReference Include="Microsoft.Extensions.Http" Version="10.0.13" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.23.0" />
   </ItemGroup>
 

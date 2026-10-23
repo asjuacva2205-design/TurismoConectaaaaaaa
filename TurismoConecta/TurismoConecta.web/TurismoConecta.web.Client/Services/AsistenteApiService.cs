@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+using System.Net;
+using System.Net.Http.Json;
 
 namespace TurismoConecta.web.Client.Services
 {
@@ -7,12 +8,22 @@ namespace TurismoConecta.web.Client.Services
         private readonly HttpClient _http;
         public AsistenteApiService(HttpClient http) => _http = http;
 
-        public async Task<string> EnviarMensajeAsync(string mensaje, List<TurnoChat> historial, CancellationToken ct = default)
+        /// <param name="contexto">Situación del viaje en curso (opcional). No incluir coordenadas del usuario.</param>
+        public async Task<string> EnviarMensajeAsync(
+            string mensaje, List<TurnoChat> historial, string? contexto = null, CancellationToken ct = default)
         {
             try
             {
-                var respuesta = await _http.PostAsJsonAsync("api/asistente/mensaje", new { Mensaje = mensaje, Historial = historial }, ct);
-                if (!respuesta.IsSuccessStatusCode) return "No pude responder en este momento.";
+                var respuesta = await _http.PostAsJsonAsync(
+                    "api/asistente/mensaje",
+                    new { Mensaje = mensaje, Historial = historial, Contexto = contexto }, ct);
+
+                if (respuesta.StatusCode == HttpStatusCode.TooManyRequests)
+                    return "Vas muy rápido para mí. Espera unos segundos y vuelve a preguntarme.";
+
+                if (!respuesta.IsSuccessStatusCode)
+                    return "No pude responder en este momento.";
+
                 var resultado = await respuesta.Content.ReadFromJsonAsync<ChatRespuestaDto>(cancellationToken: ct);
                 return resultado?.Respuesta ?? "No pude responder en este momento.";
             }
