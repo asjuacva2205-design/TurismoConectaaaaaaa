@@ -33,10 +33,11 @@ RegistrarApi<SitioTuristicoApiService>();
 RegistrarApi<AsistenteApiService>();
 RegistrarApi<NegocioApiService>();
 RegistrarApi<UsuarioApiService>();
-
+RegistrarApi<NotificacionApiService>();
 
 
 //Servicios clave para que <AuthorizeView> no se congele:
+builder.Services.AddScoped<NotificacionTiempoRealService>();
 builder.Services.AddAuthorizationCore();
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthStateProvider>();

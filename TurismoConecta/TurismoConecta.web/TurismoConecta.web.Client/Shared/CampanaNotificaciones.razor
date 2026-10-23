@@ -1,0 +1,149 @@
+@implements IDisposable
+@inject NotificacionTiempoRealService Notif
+@inject NavigationManager Nav
+
+<div class="campana">
+    <button type="button"
+            class="campana-boton @(Notif.NoLeidas > 0 ? "con-pendientes" : "")"
+            aria-label="Notificaciones: @Notif.NoLeidas sin leer"
+            aria-expanded="@(abierta ? "true" : "false")"
+            title="Notificaciones"
+            @onclick="Alternar">
+        <i class="@(Notif.NoLeidas > 0 ? "ph-fill ph-bell-ringing" : "ph ph-bell")" aria-hidden="true"></i>
+        @if (Notif.NoLeidas > 0)
+        {
+            <span class="campana-contador">@(Notif.NoLeidas > 9 ? "9+" : Notif.NoLeidas.ToString())</span>
+        }
+    </button>
+
+    @if (abierta)
+    {
+        <div class="campana-fondo" @onclick="Cerrar"></div>
+
+        <div class="campana-panel" role="dialog" aria-label="Notificaciones">
+            <header class="campana-panel-header">
+                <strong>Notificaciones</strong>
+                @if (Notif.NoLeidas > 0)
+                {
+                    <button type="button" class="campana-enlace" @onclick="MarcarTodas">
+                        Marcar todas como leídas
+                    </button>
+                }
+            </header>
+
+            @if (Notif.Notificaciones.Count == 0)
+            {
+                <p class="campana-vacio">
+                    <i class="ph ph-bell-slash" aria-hidden="true"></i>
+                    No tienes notificaciones.
+                </p>
+            }
+            else
+            {
+                <ul class="campana-lista">
+                    @foreach (var notificacion in Notif.Notificaciones)
+                    {
+                        var item = notificacion;
+                        <li class="campana-item @(item.Leida ? "" : "no-leida")"
+                            @key="item.IdNotificacion"
+                            @onclick="() => Marcar(item)">
+                     
+                            <span class="campana-item-icono @ClaseTipo(item.Codigo)" aria-hidden="true">
+                                <i class="@IconoTipo(item.Codigo)"></i>
+                            </span>
+                            <span class="campana-item-texto">
+                                <span>@item.Mensaje</span>
+                                <small>@TiempoRelativo(item.FechaCreacion)</small>
+                            </span>
+                            @if (!item.Leida)
+                            {
+                                <span class="campana-punto" aria-label="Sin leer"></span>
+                            }
+                        </li>
+                    }
+                </ul>
+            }
+
+            <footer class="campana-estado @(EstaEnVivo ? "en-vivo" : "")">
+                <span class="campana-estado-punto"></span> @TextoEstado
+            </footer>
+        </div>
+    }
+</div>
+
+@code {
+    private bool abierta;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Notif.Cambio += AlCambiar;
+        await Notif.IniciarAsync();
+    }
+
+    private void AlCambiar() => _ = InvokeAsync(StateHasChanged);
+
+    private void Alternar() => abierta = !abierta;
+
+    private void Cerrar() => abierta = false;
+
+    private async Task Marcar(NotificacionDto notificacion)
+    {
+        await Notif.MarcarLeidaAsync(notificacion);
+
+        // Las de "por revisar" llevan directo a la bandeja
+        if (notificacion.Codigo == CodigosNotificacion.NegocioPendiente)
+        {
+            abierta = false;
+            Nav.NavigateTo("/establecimientos/pendientes");
+        }
+    }
+
+    private Task MarcarTodas() => Notif.MarcarTodasLeidasAsync();
+
+    // Ícono según el código de TiposNotificacion
+    private static string IconoTipo(string codigo) => codigo switch
+    {
+        CodigosNotificacion.NegocioAprobado => "ph-fill ph-check-circle",
+        CodigosNotificacion.NegocioRechazado => "ph-fill ph-x-circle",
+        CodigosNotificacion.NegocioPendiente => "ph-fill ph-hourglass-medium",
+        CodigosNotificacion.FavoritoNuevo => "ph-fill ph-heart",
+        CodigosNotificacion.PromoNegocio => "ph-fill ph-megaphone",
+        CodigosNotificacion.InfoGeneral => "ph-fill ph-info",
+        _ => "ph ph-bell"
+    };
+
+    
+    private static string ClaseTipo(string codigo) => codigo switch
+    {
+        CodigosNotificacion.NegocioAprobado => "tipo-exito",
+        CodigosNotificacion.NegocioRechazado => "tipo-error",
+        CodigosNotificacion.NegocioPendiente => "tipo-promo",
+        CodigosNotificacion.FavoritoNuevo => "tipo-favorito",
+        CodigosNotificacion.PromoNegocio => "tipo-promo",
+        _ => ""
+    };
+
+    private static string TiempoRelativo(DateTime fecha)
+    {
+        var diferencia = DateTime.Now - fecha;
+
+        if (diferencia.TotalMinutes < 1) return "Hace un momento";
+        if (diferencia.TotalMinutes < 60) return $"Hace {(int)diferencia.TotalMinutes} min";
+        if (diferencia.TotalHours < 24) return $"Hace {(int)diferencia.TotalHours} h";
+        if (diferencia.TotalDays < 7) return $"Hace {(int)diferencia.TotalDays} d";
+        return fecha.ToString("dd MMM yyyy");
+    }
+
+    private bool EstaEnVivo =>
+        Notif.Estado == Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected;
+
+    private string TextoEstado => Notif.Estado switch
+    {
+        Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connected => "En vivo",
+        Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Reconnecting => "Reconectando…",
+        Microsoft.AspNetCore.SignalR.Client.HubConnectionState.Connecting => "Conectando…",
+        _ => "Sin conexión en tiempo real"
+    };
+
+    public void Dispose() => Notif.Cambio -= AlCambiar;
+}

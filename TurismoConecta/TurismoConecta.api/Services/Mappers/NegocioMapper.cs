@@ -24,7 +24,9 @@ namespace TurismoConecta.api.Services.Mappers
             Galeria = n.GaleriaNegocios.Select(g => g.ImagenUrl!).Where(u => u != null).ToList()
         };
 
-        public static NegocioPendienteDto ToPendienteDto(Negocio n) => new()
+        // ◆ CAMBIO: recibe cuántos negocios aprobados tiene el propietario
+        //   (se calcula en el servicio con UNA sola consulta para toda la lista)
+        public static NegocioPendienteDto ToPendienteDto(Negocio n, int negociosAprobadosPropietario = 0) => new()
         {
             IdNegocio = n.IdNegocio,
             Nombre = n.Nombre,
@@ -33,7 +35,33 @@ namespace TurismoConecta.api.Services.Mappers
             NombrePropietario = n.IdUsuarioNavigation?.Nombre ?? "",
             IdMunicipio = n.IdMunicipio,
             NombreMunicipio = n.IdMunicipioNavigation?.Nombre ?? "Sin municipio",
-            NombreCategoria = n.IdCategoriaNavigation?.Nombre ?? "Sin categoría"
+            NombreCategoria = n.IdCategoriaNavigation?.Nombre ?? "Sin categoría",
+
+            // ◆ NUEVO
+            Descripcion = n.Descripcion,
+            Direccion = n.Direccion,
+            Telefono = n.Telefono,
+            Email = n.Email,
+            Horario = n.Horario,
+            Latitud = n.Latitud,
+            Longitud = n.Longitud,
+
+            // Foto principal (si existe) + galería, sin vacías ni repetidas
+            Fotos = new[] { n.ImagenPrincipalUrl }
+                .Concat(n.GaleriaNegocios.Select(g => g.ImagenUrl))
+                .Where(url => !string.IsNullOrWhiteSpace(url))
+                .Select(url => url!)
+                .Distinct()
+                .ToList(),
+
+            Etiquetas = n.NegocioEtiqueta
+                .Select(ne => ne.IdEtiquetaNavigation?.Nombre)
+                .Where(nombre => !string.IsNullOrWhiteSpace(nombre))
+                .Select(nombre => nombre!)
+                .ToList(),
+
+            EmailPropietario = n.IdUsuarioNavigation?.Email ?? "",
+            NegociosAprobadosPropietario = negociosAprobadosPropietario
         };
     }
 }

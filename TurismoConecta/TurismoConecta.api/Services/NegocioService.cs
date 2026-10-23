@@ -11,7 +11,13 @@ namespace TurismoConecta.api.Services
     public class NegocioService : INegocioService
     {
         private readonly AppDbContext _context;
-        public NegocioService(AppDbContext context) => _context = context;
+        private readonly INotificacionService _notificaciones;
+
+        public NegocioService(AppDbContext context, INotificacionService notificaciones)
+        {
+            _context = context;
+            _notificaciones = notificaciones;
+        }
 
         public async Task<NegocioDto> CrearAsync(int idUsuario, NegocioCrearDto dto)
         {
@@ -40,6 +46,11 @@ namespace TurismoConecta.api.Services
             _context.Negocios.Add(negocio);
             await _context.SaveChangesAsync();
 
+            // Avisar a los administradores del municipio que hay algo por revisar
+            await NotificarRevisoresAsync(
+                negocio.IdMunicipio,
+                $"Nuevo establecimiento por revisar: «{negocio.Nombre}».");
+
             return await ObtenerFichaAsync(negocio.IdNegocio) ?? throw new InvalidOperationException("Error al crear el negocio.");
         }
 
@@ -65,6 +76,15 @@ namespace TurismoConecta.api.Services
             if (cambioSustancial) negocio.Estado = EstadosNegocio.Pendiente;
 
             await _context.SaveChangesAsync();
+
+            // HU-23: un cambio de nombre o categoría vuelve a revisión → avisar al municipio
+            if (cambioSustancial)
+            {
+                await NotificarRevisoresAsync(
+                    negocio.IdMunicipio,
+                    $"«{negocio.Nombre}» cambió su nombre o categoría y necesita una nueva revisión.");
+            }
+
             return (true, null);
         }
 
@@ -88,7 +108,40 @@ namespace TurismoConecta.api.Services
             if (nuevoEstado == EstadosNegocio.Aprobado) negocio.FechaAprobacion = DateTime.Now;
 
             await _context.SaveChangesAsync();
+
+            // HU-31: avisar al dueño del negocio (en vivo + historial)
+            if (negocio.IdUsuario.HasValue)
+            {
+                var fueAprobado = nuevoEstado == EstadosNegocio.Aprobado;
+
+                await _notificaciones.EnviarAsync(
+                    negocio.IdUsuario.Value,
+                    fueAprobado ? CodigosNotificacion.NegocioAprobado : CodigosNotificacion.NegocioRechazado,
+                    fueAprobado
+                        ? $"¡Tu establecimiento «{negocio.Nombre}» fue aprobado! Ya es visible para los turistas."
+                        : $"Tu establecimiento «{negocio.Nombre}» no fue aprobado. Revisa sus datos y vuelve a enviarlo.");
+            }
+
             return (true, null);
+        }
+
+        /// <summary>
+        /// Envía la notificación NEGOCIO_PENDIENTE a todos los AdminMunicipio
+        /// activos asignados a ese municipio.
+        /// </summary>
+        private async Task NotificarRevisoresAsync(int idMunicipio, string mensaje)
+        {
+            var idsRevisores = await _context.Usuarios
+                .Where(u => u.Activo
+                         && u.MunicipioAsignadoId == idMunicipio
+                         && u.IdRolNavigation.Nombre == Roles.AdminMunicipio)
+                .Select(u => u.IdUsuario)
+                .ToListAsync();
+
+            foreach (var idRevisor in idsRevisores)
+            {
+                await _notificaciones.EnviarAsync(idRevisor, CodigosNotificacion.NegocioPendiente, mensaje);
+            }
         }
 
         public async Task<List<NegocioDto>> ListarPorMunicipioAsync(int idMunicipio, int? idCategoria)
@@ -97,8 +150,7 @@ namespace TurismoConecta.api.Services
                 .Include(n => n.GaleriaNegocios)
                 .Include(n => n.IdCategoriaNavigation)
                 .Include(n => n.IdMunicipioNavigation)
-                .Where(n => n.IdMunicipio == idMunicipio && n.Estado == EstadosNegocio.Aprobado); 
-
+                .Where(n => n.IdMunicipio == idMunicipio && n.Estado == EstadosNegocio.Aprobado);
 
             if (idCategoria.HasValue)
                 query = query.Where(n => n.IdCategoria == idCategoria); // HU-25: filtro por categoría
@@ -107,16 +159,19 @@ namespace TurismoConecta.api.Services
             return negocios.Select(n => NegocioMapper.ToDto(n)).ToList();
         }
 
+        // ◆ CAMBIO: trae el detalle completo y ordena del MÁS NUEVO al más antiguo
         public async Task<List<NegocioPendienteDto>> ListarPendientesAsync(int idAdminMunicipal)
         {
             var admin = await _context.Usuarios.Include(u => u.IdRolNavigation).FirstOrDefaultAsync(u => u.IdUsuario == idAdminMunicipal);
             if (admin is null) return new List<NegocioPendienteDto>();
 
             IQueryable<Negocio> query = _context.Negocios
-            .Include(n => n.IdUsuarioNavigation)
-            .Include(n => n.IdMunicipioNavigation)
-            .Include(n => n.IdCategoriaNavigation)
-            .Where(n => n.Estado == EstadosNegocio.Pendiente);
+                .Include(n => n.IdUsuarioNavigation)
+                .Include(n => n.IdMunicipioNavigation)
+                .Include(n => n.IdCategoriaNavigation)
+                .Include(n => n.GaleriaNegocios)                                    // ◆ fotos
+                .Include(n => n.NegocioEtiqueta).ThenInclude(ne => ne.IdEtiquetaNavigation) // ◆ etiquetas
+                .Where(n => n.Estado == EstadosNegocio.Pendiente);
 
             bool esSuperAdmin = admin.IdRolNavigation?.Nombre == Roles.AdminGeneral;
             if (!esSuperAdmin)
@@ -126,10 +181,31 @@ namespace TurismoConecta.api.Services
             }
 
             var pendientes = await query
-            .OrderBy(n => n.IdMunicipioNavigation.Nombre)
-            .ThenBy(n => n.FechaRegistro)
-            .ToListAsync();
-            return pendientes.Select(NegocioMapper.ToPendienteDto).ToList();
+                .AsSplitQuery()                              // ◆ evita una consulta gigante al juntar 2 colecciones
+                .OrderByDescending(n => n.FechaRegistro)     // ◆ A1: más nuevo arriba
+                .ThenByDescending(n => n.IdNegocio)
+                .ToListAsync();
+
+            // ◆ Cuántos negocios APROBADOS tiene cada propietario (una sola consulta para todos)
+            var idsPropietarios = pendientes
+                .Where(n => n.IdUsuario.HasValue)
+                .Select(n => n.IdUsuario!.Value)
+                .Distinct()
+                .ToList();
+
+            var aprobadosPorPropietario = await _context.Negocios
+                .Where(n => n.IdUsuario.HasValue
+                         && idsPropietarios.Contains(n.IdUsuario.Value)
+                         && n.Estado == EstadosNegocio.Aprobado)
+                .GroupBy(n => n.IdUsuario!.Value)
+                .Select(g => new { IdUsuario = g.Key, Total = g.Count() })
+                .ToDictionaryAsync(x => x.IdUsuario, x => x.Total);
+
+            return pendientes
+                .Select(n => NegocioMapper.ToPendienteDto(
+                    n,
+                    n.IdUsuario.HasValue && aprobadosPorPropietario.TryGetValue(n.IdUsuario.Value, out var total) ? total : 0))
+                .ToList();
         }
 
         public async Task<NegocioDto?> ObtenerFichaAsync(int idNegocio)
@@ -148,7 +224,6 @@ namespace TurismoConecta.api.Services
             return NegocioMapper.ToDto(n, promedio);
         }
 
-
         public async Task<List<NegocioDto>> ListarMisNegociosAsync(int idUsuario)
         {
             var negocios = await _context.Negocios
@@ -161,10 +236,5 @@ namespace TurismoConecta.api.Services
 
             return negocios.Select(n => NegocioMapper.ToDto(n)).ToList();
         }
-
-
-
-
-
     }
 }

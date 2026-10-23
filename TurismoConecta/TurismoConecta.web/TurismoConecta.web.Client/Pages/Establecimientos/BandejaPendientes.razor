@@ -1,129 +1,255 @@
 @page "/establecimientos/pendientes"
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IAsyncDisposable
+@using System.Globalization
+@using System.Text
+@using Microsoft.AspNetCore.SignalR.Client
 @inject NegocioApiService NegocioService
+@inject NotificacionTiempoRealService Notif
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ApiConfig Api
+@inject IJSRuntime JS
+
+<PageTitle>Bandeja de Pendientes | TurismoConecta</PageTitle>
 
 <HeadContent>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="Pages/Establecimientos/BandejaPendientes.razor.css" />
 </HeadContent>
 
 <AuthorizeView Roles="@Roles.GeneralOMunicipio">
     <Authorized Context="authContext">
         <div class="panel-comercio-wrap">
+
+            @* ═══════════ BARRA SUPERIOR (igual que antes) ═══════════ *@
             <header class="panel-topbar">
                 <div class="topbar-container">
-                    <button class="btn-volver-inicio" @onclick="VolverDashboard">← Volver al Dashboard</button>
+                    <button class="btn-volver-inicio" @onclick="VolverDashboard">
+                        <i class="ph ph-arrow-left" aria-hidden="true"></i> Volver al Dashboard
+                    </button>
                     <div class="topbar-brand-center">
                         <a href="/admin/dashboard" class="logo-marco-dorado" title="TurismoConecta">
                             <img src="images/turismo-conecta-logo.png" alt="TurismoConecta" class="topbar-logo-img" />
                         </a>
                     </div>
-                    <div class="badge-admin-info">
-                        <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(authContext.User.Identity?.Name ?? "Gestor")&background=213b31&color=fff&size=80" alt="Foto" class="admin-avatar-topbar"
-                             onerror="this.onerror=null;this.style.display='none';" />
-                        <span class="admin-label-prefijo">Administrador:</span>
-                        <span class="admin-nombre-valor">@(authContext.User.Identity?.Name ?? "Gestor")</span>
-                        <span class="admin-rol-tag">@(authContext.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? authContext.User.FindFirst("role")?.Value ?? "Admin")</span>
+                    <div class="topbar-derecha">
+                        <CampanaNotificaciones />
+                        <div class="badge-admin-info">
+                            <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(authContext.User.Identity?.Name ?? "Gestor")&background=213b31&color=fff&size=80" alt="Foto" class="admin-avatar-topbar"
+                                 onerror="this.onerror=null;this.style.display='none';" />
+                            <span class="admin-label-prefijo">Administrador:</span>
+                            <span class="admin-nombre-valor">@(authContext.User.Identity?.Name ?? "Gestor")</span>
+                            <span class="admin-rol-tag">@(authContext.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? authContext.User.FindFirst("role")?.Value ?? "Admin")</span>
+                        </div>
                     </div>
                 </div>
             </header>
 
             <main class="panel-cuerpo">
+
+                @* ═══════════ ENCABEZADO + INDICADOR EN VIVO ═══════════ *@
                 <div class="panel-header-editorial">
                     <div>
                         <span class="eyebrow">Validación de Establecimientos</span>
                         <h1 class="titulo-editorial">Bandeja de Pendientes</h1>
                         <p class="bajada">Revisa y autoriza la publicación de negocios locales en tu municipio.</p>
                     </div>
+                    <span class="estado-vivo @(EnVivo ? "conectado" : "")">
+                        <span class="punto" aria-hidden="true"></span>
+                        @(EnVivo ? "Actualización en vivo" : "Conectando…")
+                    </span>
                 </div>
 
                 @if (cargando)
                 {
-                    <p>Cargando solicitudes...</p>
+                    @* Esqueletos mientras carga: se ve más profesional que un texto *@
+                    <div class="grid-pendientes" aria-busy="true">
+                        @for (var i = 0; i < 3; i++)
+                        {
+                            <div class="tarjeta-esqueleto">
+                                <div class="esq-media"></div>
+                                <div class="esq-linea"></div>
+                                <div class="esq-linea corta"></div>
+                            </div>
+                        }
+                    </div>
                 }
                 else if (!pendientes.Any())
                 {
                     <div class="caja-vacia-editorial">
-                        <div class="icono-vacio">
-                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: #2d6a4f; margin-bottom: 12px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                        </div>
+                        <span class="icono-vacio"><i class="ph-fill ph-seal-check" aria-hidden="true"></i></span>
                         <h3>Al día. No hay solicitudes pendientes</h3>
-                        <p>Todos los negocios registrados en tu municipio han sido revisados.</p>
+                        <p>Todos los negocios de tu municipio fueron revisados. Cuando llegue uno nuevo aparecerá aquí al instante.</p>
                     </div>
                 }
                 else
                 {
-                    <!-- Aviso general -->
-                    <div class="resumen-pendientes">
-                        ⚠ <strong>@pendientes.Count</strong> establecimiento@(pendientes.Count == 1 ? "" : "s") por aprobar
-                        en <strong>@grupos.Count</strong> municipio@(grupos.Count == 1 ? "" : "s")
-                    </div>
+                    var masAntiguo = pendientes.Where(p => p.FechaRegistro.HasValue).MinBy(p => p.FechaRegistro);
 
-                    <!-- Una tarjeta por municipio -->
-                    <div class="grid-municipios">
-                        @foreach (var grupo in grupos)
-                        {
-                            var estaAbierto = municipioAbierto == grupo.Key;
-                            <button type="button"
-                                    class="tarjeta-municipio @(estaAbierto ? "abierta" : "")"
-                                    @onclick="() => AlternarMunicipio(grupo.Key)">
-                                <span class="tarjeta-nombre">📍 @grupo.Key</span>
-                                <span class="tarjeta-contador">@grupo.Count() por aprobar</span>
-                                <span class="tarjeta-flecha">@(estaAbierto ? "▲" : "▼")</span>
+                    @* ═══════════ KPIs ═══════════ *@
+                    <section class="resumen-grid" aria-label="Resumen de la bandeja">
+                        <div class="resumen-kpi destacado">
+                            <span class="kpi-icono"><i class="ph-fill ph-hourglass-medium" aria-hidden="true"></i></span>
+                            <div>
+                                <span class="kpi-valor">@pendientes.Count</span>
+                                <span class="kpi-etiqueta">Por revisar</span>
+                            </div>
+                        </div>
+                        <div class="resumen-kpi">
+                            <span class="kpi-icono"><i class="ph-fill ph-calendar-check" aria-hidden="true"></i></span>
+                            <div>
+                                <span class="kpi-valor">@pendientes.Count(p => p.FechaRegistro?.Date == DateTime.Today)</span>
+                                <span class="kpi-etiqueta">Llegaron hoy</span>
+                            </div>
+                        </div>
+                        <div class="resumen-kpi">
+                            <span class="kpi-icono"><i class="ph-fill ph-timer" aria-hidden="true"></i></span>
+                            <div>
+                                <span class="kpi-valor">@(masAntiguo is null ? "—" : TiempoCorto(masAntiguo.FechaRegistro))</span>
+                                <span class="kpi-etiqueta">Espera más larga</span>
+                            </div>
+                        </div>
+                        <div class="resumen-kpi">
+                            <span class="kpi-icono"><i class="ph-fill ph-map-trifold" aria-hidden="true"></i></span>
+                            <div>
+                                <span class="kpi-valor">@Municipios.Count</span>
+                                <span class="kpi-etiqueta">@(Municipios.Count == 1 ? "Municipio" : "Municipios")</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    @* ═══════════ C2: BUSCADOR Y FILTROS ═══════════ *@
+                    <div class="barra-filtros">
+                        <div class="buscador">
+                            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                            <input type="text" placeholder="Buscar por establecimiento o propietario…" aria-label="Buscar"
+                                   @bind="textoBusqueda" @bind:event="oninput" />
+                            @if (!string.IsNullOrEmpty(textoBusqueda))
+                            {
+                                <button type="button" class="btn-limpiar-busqueda" aria-label="Limpiar búsqueda" @onclick="LimpiarBusqueda">
+                                    <i class="ph ph-x" aria-hidden="true"></i>
+                                </button>
+                            }
+                        </div>
+
+                        <div class="chips-filtro" role="group" aria-label="Filtrar por categoría">
+                            <button type="button" class="chip-filtro @(categoriaFiltro is null ? "activo" : "")" @onclick="() => FiltrarCategoria(null)">
+                                Todas <span class="contador">@pendientes.Count</span>
                             </button>
-                        }
+                            @foreach (var cat in Categorias)
+                            {
+                                var nombreCat = cat.Nombre;
+                                <button type="button" class="chip-filtro @(categoriaFiltro == nombreCat ? "activo" : "")" @onclick="() => FiltrarCategoria(nombreCat)">
+                                    <i class="ph @IconoCategoria(nombreCat)" aria-hidden="true"></i> @nombreCat
+                                    <span class="contador">@cat.Total</span>
+                                </button>
+                            }
+                        </div>
                     </div>
 
-                    <!-- Lista del municipio seleccionado -->
-                    @if (municipioAbierto is not null)
+                    @* Solo el AdminGeneral ve varios municipios: para él aparece esta fila *@
+                    @if (Municipios.Count > 1)
                     {
-                        var listaMunicipio = grupos.First(g => g.Key == municipioAbierto).ToList();
+                        <div class="chips-filtro fila-municipios" role="group" aria-label="Filtrar por municipio">
+                            <button type="button" class="chip-filtro @(municipioFiltro is null ? "activo" : "")" @onclick="() => FiltrarMunicipio(null)">
+                                <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i> Todos los municipios
+                            </button>
+                            @foreach (var muni in Municipios)
+                            {
+                                var nombreMuni = muni.Nombre;
+                                <button type="button" class="chip-filtro @(municipioFiltro == nombreMuni ? "activo" : "")" @onclick="() => FiltrarMunicipio(nombreMuni)">
+                                    <i class="ph-fill ph-map-pin" aria-hidden="true"></i> @nombreMuni
+                                    <span class="contador">@muni.Total</span>
+                                </button>
+                            }
+                        </div>
+                    }
 
-                        <h2 class="titulo-grupo">Pendientes en @municipioAbierto</h2>
+                    var visibles = PendientesFiltrados;
 
-                        <div style="background:#fff; border-radius:12px; border:1px solid #e0ebe3; overflow:hidden;">
-                            <table style="width:100%; border-collapse:collapse; text-align:left;">
-                                <thead style="background:#f4f7f5; border-bottom:1px solid #d8e5dc;">
-                                    <tr>
-                                        <th style="padding:1rem;">Establecimiento</th>
-                                        <th style="padding:1rem;">Categoría</th>
-                                        <th style="padding:1rem;">Propietario</th>
-                                        <th style="padding:1rem;">Fecha Envío</th>
-                                        <th style="padding:1rem; text-align:right;">Decisión</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var p in listaMunicipio)
-                                    {
-                                        <tr style="border-bottom:1px solid #edf3ef;">
-                                            <td style="padding:1rem; font-weight:600;">@p.Nombre</td>
-                                            <td style="padding:1rem;"><span class="badge-cat" style="position:static; background:#e8f5e9; color:#1b4332;">@p.NombreCategoria</span></td>
-                                            <td style="padding:1rem; color:#555;">@p.NombrePropietario</td>
-                                            <td style="padding:1rem; color:#777; font-size:0.85rem;">@(p.FechaRegistro?.ToString("dd/MM/yyyy HH:mm") ?? "-")</td>
-                                            <td style="padding:1rem; text-align:right;">
-                                                <button style="background:#2d6a4f; color:#fff; border:none; padding:0.45rem 0.9rem; border-radius:6px; cursor:pointer; font-weight:600; margin-right:0.5rem;"
-                                                        @onclick='() => ResolverEstado(p.IdNegocio, "Aprobado")'>
-                                                    ✓ Aprobar
-                                                </button>
-                                                <button style="background:#dc2626; color:#fff; border:none; padding:0.45rem 0.9rem; border-radius:6px; cursor:pointer; font-weight:600;"
-                                                        @onclick='() => ResolverEstado(p.IdNegocio, "Rechazado")'>
-                                                    ✕ Rechazar
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+                    <p class="texto-resultados">
+                        Mostrando <strong>@visibles.Count</strong> de @pendientes.Count · del más reciente al más antiguo
+                    </p>
+
+                    @if (!visibles.Any())
+                    {
+                        <div class="sin-resultados">
+                            <i class="ph ph-magnifying-glass-minus" aria-hidden="true"></i>
+                            <p>Ningún establecimiento coincide con los filtros.</p>
+                            <button type="button" class="btn-ver" @onclick="LimpiarFiltros">Limpiar filtros</button>
                         </div>
                     }
                     else
                     {
-                        <p class="ayuda-grupo">Selecciona un municipio para revisar sus solicitudes.</p>
+                        @* ═══════════ C1: TARJETAS ═══════════ *@
+                        <div class="grid-pendientes">
+                            @foreach (var p in visibles)
+                            {
+                                var negocio = p;
+                                var puntaje = Puntaje(negocio);
+                                var esNuevo = nuevosIds.Contains(negocio.IdNegocio);
+
+                                <article class="tarjeta-pendiente @(esNuevo ? "es-nuevo" : "")" @key="negocio.IdNegocio"
+                                         tabindex="0" role="button" aria-label="Revisar @negocio.Nombre"
+                                         @onclick="() => AbrirPanel(negocio)"
+                                         @onkeydown="e => TeclaEnTarjeta(e, negocio)">
+
+                                    <div class="tarjeta-media">
+                                        <div class="media-placeholder"><i class="ph @IconoCategoria(negocio.NombreCategoria)" aria-hidden="true"></i></div>
+                                        @if (negocio.Fotos.Any())
+                                        {
+                                            <img src="@Foto(negocio.Fotos[0])" alt="@negocio.Nombre" loading="lazy"
+                                                 onerror="this.onerror=null;this.style.display='none';" />
+                                        }
+                                        <span class="chip-espera @ClaseEspera(negocio.FechaRegistro)">
+                                            <i class="ph ph-clock" aria-hidden="true"></i> @TiempoEspera(negocio.FechaRegistro)
+                                        </span>
+                                        @if (esNuevo)
+                                        {
+                                            <span class="cinta-nuevo">Nuevo</span>
+                                        }
+                                        <span class="chip-categoria">
+                                            <i class="ph-fill @IconoCategoria(negocio.NombreCategoria)" aria-hidden="true"></i> @negocio.NombreCategoria
+                                        </span>
+                                        @if (negocio.Fotos.Count > 1)
+                                        {
+                                            <span class="chip-fotos"><i class="ph ph-images" aria-hidden="true"></i> @negocio.Fotos.Count</span>
+                                        }
+                                    </div>
+
+                                    <div class="tarjeta-cuerpo">
+                                        <h3 class="tarjeta-titulo">@negocio.Nombre</h3>
+                                        <p class="tarjeta-meta">
+                                            <span><i class="ph ph-map-pin" aria-hidden="true"></i> @negocio.NombreMunicipio</span>
+                                            <span><i class="ph ph-user" aria-hidden="true"></i> @negocio.NombrePropietario</span>
+                                        </p>
+                                        <div class="calidad-mini" title="Calidad del registro">
+                                            <div class="calidad-barra"><span class="@ClaseCalidad(puntaje)" style="width:@(puntaje * 20)%"></span></div>
+                                            <span class="calidad-texto">@puntaje/5 criterios</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="tarjeta-acciones">
+                                        <button type="button" class="btn-ver" @onclick="() => AbrirPanel(negocio)" @onclick:stopPropagation="true">
+                                            Ver detalle <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                                        </button>
+                                        <div class="acciones-rapidas">
+                                            <button type="button" class="btn-icono aprobar" title="Aprobar" aria-label="Aprobar @negocio.Nombre"
+                                                    @onclick="() => ResolverEstado(negocio, EstadoAprobado)" @onclick:stopPropagation="true">
+                                                <i class="ph-bold ph-check" aria-hidden="true"></i>
+                                            </button>
+                                            <button type="button" class="btn-icono rechazar" title="Rechazar" aria-label="Rechazar @negocio.Nombre"
+                                                    @onclick="() => ResolverEstado(negocio, EstadoRechazado)" @onclick:stopPropagation="true">
+                                                <i class="ph-bold ph-x" aria-hidden="true"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </article>
+                            }
+                        </div>
                     }
                 }
             </main>
@@ -131,87 +257,677 @@
     </Authorized>
 </AuthorizeView>
 
+@* ═══════════ B1: PANEL LATERAL DE REVISIÓN ═══════════ *@
+@if (seleccionado is not null)
+{
+    var s = seleccionado;
+    var criterios = Calidad(s);
+    var puntajePanel = criterios.Count(c => c.Cumple);
+
+    <div class="panel-fondo" @onclick="CerrarPanel"></div>
+
+    <aside class="panel-revision" role="dialog" aria-modal="true" aria-labelledby="titulo-revision"
+           tabindex="-1" @ref="panelRef" @onkeydown="TeclaEnPanel">
+
+        <header class="panel-rev-cabecera">
+            <div>
+                <span class="eyebrow">Revisión de establecimiento</span>
+                <h2 id="titulo-revision">@s.Nombre</h2>
+            </div>
+            <button type="button" class="btn-cerrar-panel" aria-label="Cerrar panel" @onclick="CerrarPanel">
+                <i class="ph ph-x" aria-hidden="true"></i>
+            </button>
+        </header>
+
+        <div class="panel-rev-scroll">
+
+            @* Galería *@
+            @if (s.Fotos.Any())
+            {
+                <div class="galeria-principal" role="button" tabindex="0" aria-label="Ampliar foto" @onclick="AbrirLightbox">
+                    <img src="@Foto(s.Fotos[fotoActiva])" alt="Foto de @s.Nombre" />
+                    <span class="chip-categoria">
+                        <i class="ph-fill @IconoCategoria(s.NombreCategoria)" aria-hidden="true"></i> @s.NombreCategoria
+                    </span>
+                    @if (s.Fotos.Count > 1)
+                    {
+                        <span class="galeria-contador">@(fotoActiva + 1) / @s.Fotos.Count</span>
+                    }
+                    <span class="galeria-ampliar"><i class="ph ph-arrows-out" aria-hidden="true"></i> Ampliar</span>
+                </div>
+
+                @if (s.Fotos.Count > 1)
+                {
+                    <div class="galeria-miniaturas">
+                        @for (var i = 0; i < s.Fotos.Count; i++)
+                        {
+                            var indice = i;
+                            <button type="button" class="miniatura @(indice == fotoActiva ? "activa" : "")"
+                                    aria-label="Ver foto @(indice + 1)" @onclick="() => SeleccionarFoto(indice)">
+                                <img src="@Foto(s.Fotos[indice])" alt="" loading="lazy" />
+                            </button>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="galeria-principal sin-fotos">
+                    <div>
+                        <i class="ph ph-image-broken" aria-hidden="true"></i>
+                        El comerciante no subió fotos
+                    </div>
+                </div>
+            }
+
+            <div class="rev-meta">
+                <span><i class="ph ph-map-pin" aria-hidden="true"></i> @s.NombreMunicipio</span>
+                <span><i class="ph ph-paper-plane-tilt" aria-hidden="true"></i> Enviado @(s.FechaRegistro?.ToString("dd/MM/yyyy HH:mm") ?? "sin fecha")</span>
+                <span class="chip-espera-inline @ClaseEspera(s.FechaRegistro)"><i class="ph ph-clock" aria-hidden="true"></i> @TiempoEspera(s.FechaRegistro)</span>
+            </div>
+
+            @* B2: Calidad del registro *@
+            <section class="rev-seccion calidad-bloque">
+                <div class="calidad-cabecera">
+                    <h3>Calidad del registro</h3>
+                    <span class="calidad-puntaje @ClaseCalidad(puntajePanel)">@puntajePanel/5</span>
+                </div>
+                <div class="calidad-barra grande"><span class="@ClaseCalidad(puntajePanel)" style="width:@(puntajePanel * 20)%"></span></div>
+                <ul class="lista-criterios">
+                    @foreach (var c in criterios)
+                    {
+                        <li class="@(c.Cumple ? "ok" : "falta")">
+                            <i class="@(c.Cumple ? "ph-fill ph-check-circle" : "ph ph-circle-dashed")" aria-hidden="true"></i>
+                            @c.Texto
+                        </li>
+                    }
+                </ul>
+                <p class="calidad-consejo">@ConsejoCalidad(puntajePanel)</p>
+            </section>
+
+            @* Descripción y etiquetas *@
+            <section class="rev-seccion">
+                <h3>Descripción</h3>
+                @if (string.IsNullOrWhiteSpace(s.Descripcion))
+                {
+                    <p class="rev-descripcion vacia">El comerciante no agregó una descripción.</p>
+                }
+                else
+                {
+                    <p class="rev-descripcion">@s.Descripcion</p>
+                }
+                @if (s.Etiquetas.Any())
+                {
+                    <div class="chips-etiquetas">
+                        @foreach (var etiqueta in s.Etiquetas)
+                        {
+                            <span class="chip-etiqueta">@etiqueta</span>
+                        }
+                    </div>
+                }
+            </section>
+
+            @* Contacto *@
+            <section class="rev-seccion">
+                <h3>Información de contacto</h3>
+                <div class="datos-grid">
+                    @DatoContacto("ph-clock", "Horario", s.Horario)
+                    @DatoContacto("ph-phone", "Teléfono", s.Telefono)
+                    @DatoContacto("ph-envelope-simple", "Email", s.Email)
+                    @DatoContacto("ph-map-pin-line", "Dirección", s.Direccion)
+                </div>
+            </section>
+
+            @* Ubicación *@
+            <section class="rev-seccion">
+                <h3>Ubicación</h3>
+                @if (TieneUbicacion(s))
+                {
+                    <div id="mapa-revision" class="mini-mapa"></div>
+                    <a class="enlace-externo" target="_blank" rel="noopener"
+                       href="https://www.google.com/maps?q=@Coord(s.Latitud),@Coord(s.Longitud)">
+                        Abrir en Google Maps <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                    </a>
+                }
+                else
+                {
+                    <div class="sin-ubicacion">
+                        <i class="ph ph-map-pin-simple-slash" aria-hidden="true"></i>
+                        El comerciante no marcó la ubicación en el mapa.
+                    </div>
+                }
+            </section>
+
+            @* Propietario *@
+            <section class="rev-seccion">
+                <h3>Propietario</h3>
+                <div class="propietario-card">
+                    <img src="@Avatar(s.NombrePropietario)" alt="" />
+                    <div class="propietario-datos">
+                        <strong>@(string.IsNullOrWhiteSpace(s.NombrePropietario) ? "Sin nombre" : s.NombrePropietario)</strong>
+                        <span>@s.EmailPropietario</span>
+                    </div>
+                    @if (s.NegociosAprobadosPropietario > 0)
+                    {
+                        <span class="badge-propietario verificado">
+                            <i class="ph-fill ph-seal-check" aria-hidden="true"></i>
+                            @(s.NegociosAprobadosPropietario == 1 ? "1 negocio aprobado" : $"{s.NegociosAprobadosPropietario} negocios aprobados")
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="badge-propietario nuevo">
+                            <i class="ph-fill ph-sparkle" aria-hidden="true"></i> Primer registro
+                        </span>
+                    }
+                </div>
+            </section>
+        </div>
+
+        @* Botones fijos al pie *@
+        <footer class="panel-rev-pie">
+            <button type="button" class="btn-panel-rechazar" @onclick="() => ResolverEstado(s, EstadoRechazado)">
+                <i class="ph ph-x-circle" aria-hidden="true"></i> Rechazar
+            </button>
+            <button type="button" class="btn-panel-aprobar" @onclick="() => ResolverEstado(s, EstadoAprobado)">
+                <i class="ph-fill ph-check-circle" aria-hidden="true"></i> Aprobar y publicar
+            </button>
+        </footer>
+    </aside>
+}
+
+@* ═══════════ LIGHTBOX (foto a pantalla completa) ═══════════ *@
+@if (lightboxAbierto && seleccionado is not null && seleccionado.Fotos.Any())
+{
+    <div class="lightbox" tabindex="-1" @ref="lightboxRef" @onclick="CerrarLightbox" @onkeydown="TeclaEnLightbox"
+         role="dialog" aria-label="Galería de fotos">
+        <button type="button" class="lightbox-cerrar" aria-label="Cerrar" @onclick="CerrarLightbox" @onclick:stopPropagation="true">
+            <i class="ph ph-x" aria-hidden="true"></i>
+        </button>
+
+        @if (seleccionado.Fotos.Count > 1)
+        {
+            <button type="button" class="lightbox-nav anterior" aria-label="Foto anterior" @onclick="AnteriorFoto" @onclick:stopPropagation="true">
+                <i class="ph ph-caret-left" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="lightbox-nav siguiente" aria-label="Foto siguiente" @onclick="SiguienteFoto" @onclick:stopPropagation="true">
+                <i class="ph ph-caret-right" aria-hidden="true"></i>
+            </button>
+        }
+
+        <img src="@Foto(seleccionado.Fotos[fotoActiva])" alt="Foto de @seleccionado.Nombre" @onclick:stopPropagation="true" />
+        <span class="lightbox-contador">@(fotoActiva + 1) / @seleccionado.Fotos.Count</span>
+    </div>
+}
+
+@* ═══════════ TOAST (con Deshacer y barra de tiempo) ═══════════ *@
 @if (!string.IsNullOrEmpty(mensajeAlerta))
 {
-    <div class="floating-toast-clean @(esError ? "toast-error" : "toast-success")">
+    <div class="floating-toast-clean @($"toast-{tipoToast}")" @key="toastVersion" role="status" aria-live="polite">
         <div class="toast-indicator"></div>
         <div class="toast-content">
             <div class="toast-header-flex">
-                <span class="toast-title">@(esError ? "Aviso del Sistema" : tituloAlerta ?? "Operación Exitosa")</span>
-                <button type="button" class="btn-cerrar-toast" @onclick="CerrarAlerta">✕</button>
+                <span class="toast-title">@tituloAlerta</span>
+                <button type="button" class="btn-cerrar-toast" aria-label="Cerrar aviso" @onclick="CerrarAlerta">
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                </button>
             </div>
             <p class="toast-desc">@mensajeAlerta</p>
+            @if (mostrarDeshacer && accionPendiente is not null)
+            {
+                <button type="button" class="btn-deshacer" @onclick="Deshacer">
+                    <i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Deshacer
+                </button>
+            }
         </div>
+        <span class="toast-progreso" style="animation-duration:@(duracionToastMs)ms"></span>
     </div>
 }
 
 @code {
-    private List<NegocioPendienteAprobacionDto> pendientes = new();
-    // Pendientes agrupados: cada grupo = un municipio con sus negocios
-    private List<IGrouping<string, NegocioPendienteAprobacionDto>> grupos = new();
+    // ════════════════ CONSTANTES ════════════════
+    private const string EstadoAprobado = "Aprobado";
+    private const string EstadoRechazado = "Rechazado";
+    private const int SegundosDeshacer = 5;
 
-    // Nombre del municipio cuya tarjeta está desplegada (null = ninguna)
-    private string? municipioAbierto;
+    // ════════════════ DATOS ════════════════
+    private List<NegocioPendienteAprobacionDto> pendientes = new();
     private bool cargando = true;
+
+    // ════════════════ C2: FILTROS ════════════════
+    private string textoBusqueda = "";
+    private string? categoriaFiltro;
+    private string? municipioFiltro;
+
+    // ════════════════ B1: PANEL Y LIGHTBOX ════════════════
+    private NegocioPendienteAprobacionDto? seleccionado;
+    private int fotoActiva;
+    private bool lightboxAbierto;
+    private ElementReference panelRef;
+    private ElementReference lightboxRef;
+    private bool mapaPorDibujar;
+    private bool enfocarPanel;
+    private bool enfocarLightbox;
+
+    // ════════════════ C3: RESALTAR NUEVOS ════════════════
+    private readonly HashSet<int> nuevosIds = new();
+
+    // ════════════════ A3: DESHACER ════════════════
+    // La decisión NO se envía a la API de inmediato: espera 5 s por si el admin se arrepiente.
+    private sealed record AccionPendiente(NegocioPendienteAprobacionDto Negocio, string Estado, CancellationTokenSource Cts);
+    private AccionPendiente? accionPendiente;
+
+    // ════════════════ TOAST ════════════════
     private string? mensajeAlerta;
-    private string? tituloAlerta;
-    private bool esError = false;
+    private string tituloAlerta = "";
+    private string tipoToast = "success";      // success | warning | error
+    private bool mostrarDeshacer;
+    private int duracionToastMs = 4000;
+    private int toastVersion;                  // cambia en cada toast → reinicia la animación de la barra
     private CancellationTokenSource? _toastCts;
 
+    private sealed record Criterio(string Texto, bool Cumple);
+
+    // ════════════════ PROPIEDADES CALCULADAS ════════════════
+    private bool EnVivo => Notif.Estado == HubConnectionState.Connected;
+
+    private List<(string Nombre, int Total)> Categorias =>
+        pendientes.GroupBy(p => p.NombreCategoria)
+                  .Select(g => (Nombre: g.Key, Total: g.Count()))
+                  .OrderByDescending(x => x.Total).ThenBy(x => x.Nombre)
+                  .ToList();
+
+    private List<(string Nombre, int Total)> Municipios =>
+        pendientes.GroupBy(p => p.NombreMunicipio)
+                  .Select(g => (Nombre: g.Key, Total: g.Count()))
+                  .OrderByDescending(x => x.Total).ThenBy(x => x.Nombre)
+                  .ToList();
+
+    private List<NegocioPendienteAprobacionDto> PendientesFiltrados
+    {
+        get
+        {
+            var termino = Normalizar(textoBusqueda);
+            return pendientes.Where(p =>
+                    (categoriaFiltro is null || p.NombreCategoria == categoriaFiltro) &&
+                    (municipioFiltro is null || p.NombreMunicipio == municipioFiltro) &&
+                    (termino.Length == 0
+                        || Normalizar(p.Nombre).Contains(termino)
+                        || Normalizar(p.NombrePropietario).Contains(termino)))
+                .ToList();
+        }
+    }
+
+    // ════════════════ CICLO DE VIDA ════════════════
     protected override async Task OnInitializedAsync()
     {
+        Notif.NotificacionRecibida += AlRecibirNotificacion;
         await CargarPendientes();
     }
 
-    private async Task CargarPendientes()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        cargando = true;
-        pendientes = await NegocioService.ListarPendientesAsync();
+        // El <div id="mapa-revision"> ya existe en pantalla → ahora sí se puede dibujar
+        if (mapaPorDibujar && seleccionado is not null && TieneUbicacion(seleccionado))
+        {
+            mapaPorDibujar = false;
+            try
+            {
+                await JS.InvokeVoidAsync("mapaRevision.mostrar", "mapa-revision",
+                    (double)seleccionado.Latitud!.Value, (double)seleccionado.Longitud!.Value, seleccionado.Nombre);
+            }
+            catch (JSException) { /* si el JS no cargó, el panel sigue funcionando sin mapa */ }
+        }
 
-        // Agrupar por municipio; primero el que tiene más pendientes
-        grupos = pendientes
-            .GroupBy(p => p.NombreMunicipio)
-            .OrderByDescending(g => g.Count())
-            .ThenBy(g => g.Key)
-            .ToList();
+        if (enfocarPanel)
+        {
+            enfocarPanel = false;
+            try { await panelRef.FocusAsync(); } catch { }
+        }
 
-        // Si el municipio abierto ya no tiene pendientes (se aprobó el último), se cierra
-        if (municipioAbierto is not null && grupos.All(g => g.Key != municipioAbierto))
-            municipioAbierto = null;
+        if (enfocarLightbox)
+        {
+            enfocarLightbox = false;
+            try { await lightboxRef.FocusAsync(); } catch { }
+        }
+    }
 
-        // Si solo hay un municipio (caso AdminMunicipio), se abre directamente
-        if (grupos.Count == 1)
-            municipioAbierto = grupos[0].Key;
+    // ════════════════ CARGA ════════════════
+    private async Task CargarPendientes(bool mostrarCargando = true)
+    {
+        if (mostrarCargando) cargando = true;
+
+        var lista = await NegocioService.ListarPendientesAsync();
+
+        // Si hay una decisión esperando los 5 s, ese negocio no debe "volver" a aparecer
+        if (accionPendiente is not null)
+            lista.RemoveAll(p => p.IdNegocio == accionPendiente.Negocio.IdNegocio);
+
+        pendientes = Ordenar(lista);
+
+        // Si un filtro quedó apuntando a algo que ya no existe, se limpia
+        if (categoriaFiltro is not null && pendientes.All(p => p.NombreCategoria != categoriaFiltro)) categoriaFiltro = null;
+        if (municipioFiltro is not null && pendientes.All(p => p.NombreMunicipio != municipioFiltro)) municipioFiltro = null;
+
+        // Si el panel está abierto, se refresca con los datos nuevos (o se cierra si ya no está)
+        if (seleccionado is not null)
+        {
+            var actualizado = pendientes.FirstOrDefault(p => p.IdNegocio == seleccionado.IdNegocio);
+            if (actualizado is null)
+            {
+                await CerrarPanel();
+            }
+            else
+            {
+                seleccionado = actualizado;
+                fotoActiva = Math.Min(fotoActiva, Math.Max(0, actualizado.Fotos.Count - 1));
+            }
+        }
 
         cargando = false;
     }
 
-    private void AlternarMunicipio(string nombreMunicipio) =>
-        municipioAbierto = municipioAbierto == nombreMunicipio ? null : nombreMunicipio;
+    private static List<NegocioPendienteAprobacionDto> Ordenar(IEnumerable<NegocioPendienteAprobacionDto> lista) =>
+        lista.OrderByDescending(p => p.FechaRegistro ?? DateTime.MinValue)   // A1: más nuevo arriba
+             .ThenByDescending(p => p.IdNegocio)
+             .ToList();
 
-    private async Task ResolverEstado(int idNegocio, string nuevoEstado)
+    // ════════════════ TIEMPO REAL (SignalR) + C3 ════════════════
+    private void AlRecibirNotificacion(NotificacionDto notificacion)
     {
-        var (exito, error) = await NegocioService.CambiarEstadoAsync(idNegocio, nuevoEstado);
-        if (exito)
+        if (notificacion.Codigo != CodigosNotificacion.NegocioPendiente) return;
+
+        _ = InvokeAsync(async () =>
         {
-            var accion = nuevoEstado == "Aprobado" ? "aprobado para publicación" : "rechazado";
-            MostrarToast($"El establecimiento ha sido {accion} exitosamente.", error: false, titulo: nuevoEstado == "Aprobado" ? "Establecimiento Aprobado" : "Solicitud Rechazada");
-            await CargarPendientes();
+            var idsAntes = pendientes.Select(p => p.IdNegocio).ToHashSet();
+            await CargarPendientes(mostrarCargando: false);
+
+            var llegados = pendientes.Where(p => !idsAntes.Contains(p.IdNegocio)).Select(p => p.IdNegocio).ToList();
+            foreach (var id in llegados) nuevosIds.Add(id);
+
+            MostrarToast(notificacion.Mensaje, "Nueva solicitud");
+
+            if (llegados.Count > 0) _ = QuitarResaltadoAsync(llegados);
+        });
+    }
+
+    private async Task QuitarResaltadoAsync(List<int> ids)
+    {
+        await Task.Delay(3600);   // dura lo mismo que la animación dorada (3 × 1,2 s)
+        foreach (var id in ids) nuevosIds.Remove(id);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ════════════════ A3: APROBAR / RECHAZAR CON DESHACER ════════════════
+    private async Task ResolverEstado(NegocioPendienteAprobacionDto negocio, string nuevoEstado)
+    {
+        // Si había otra decisión esperando, se envía ya mismo (solo una a la vez)
+        await ConfirmarAccionPendienteAsync();
+
+        if (seleccionado?.IdNegocio == negocio.IdNegocio) await CerrarPanel();
+
+        pendientes.RemoveAll(p => p.IdNegocio == negocio.IdNegocio);
+        nuevosIds.Remove(negocio.IdNegocio);
+
+        var accion = new AccionPendiente(negocio, nuevoEstado, new CancellationTokenSource());
+        accionPendiente = accion;
+
+        var aprobado = nuevoEstado == EstadoAprobado;
+        MostrarToast(
+            aprobado ? $"«{negocio.Nombre}» se publicará en {SegundosDeshacer} segundos."
+                     : $"«{negocio.Nombre}» se marcará como rechazado.",
+            aprobado ? "Establecimiento aprobado" : "Solicitud rechazada",
+            tipo: aprobado ? "success" : "warning",
+            deshacer: true,
+            duracionMs: SegundosDeshacer * 1000);
+
+        _ = EjecutarTrasEsperaAsync(accion);
+    }
+
+    private async Task EjecutarTrasEsperaAsync(AccionPendiente accion)
+    {
+        try
+        {
+            await Task.Delay(SegundosDeshacer * 1000, accion.Cts.Token);
         }
-        else
+        catch (TaskCanceledException)
         {
-            MostrarToast(error ?? "No se pudo procesar la solicitud.", error: true, titulo: "Error al Procesar");
+            return;   // se deshizo o ya se confirmó por otro camino
+        }
+
+        await InvokeAsync(() => ConfirmarAsync(accion));
+    }
+
+    private async Task ConfirmarAccionPendienteAsync()
+    {
+        if (accionPendiente is null) return;
+        var accion = accionPendiente;
+        accion.Cts.Cancel();          // detiene el temporizador de 5 s
+        await ConfirmarAsync(accion);
+    }
+
+    // Aquí es donde REALMENTE se llama a la API (y la API notifica al comerciante)
+    private async Task ConfirmarAsync(AccionPendiente accion)
+    {
+        if (!ReferenceEquals(accionPendiente, accion)) return;   // ya se deshizo o confirmó
+        accionPendiente = null;
+        mostrarDeshacer = false;
+
+        var (exito, error) = await NegocioService.CambiarEstadoAsync(accion.Negocio.IdNegocio, accion.Estado);
+        if (!exito)
+        {
+            MostrarToast(error ?? "No se pudo procesar la solicitud.", "Error al procesar", tipo: "error");
+            await CargarPendientes(mostrarCargando: false);   // el negocio vuelve a la lista
+        }
+
+        StateHasChanged();
+    }
+
+    private void Deshacer()
+    {
+        if (accionPendiente is null) return;
+
+        var accion = accionPendiente;
+        accionPendiente = null;
+        accion.Cts.Cancel();                        // la API nunca se entera
+
+        pendientes.Add(accion.Negocio);
+        pendientes = Ordenar(pendientes);
+
+        MostrarToast($"«{accion.Negocio.Nombre}» volvió a la bandeja.", "Acción deshecha");
+    }
+
+    // ════════════════ B1: PANEL ════════════════
+    private void AbrirPanel(NegocioPendienteAprobacionDto negocio)
+    {
+        seleccionado = negocio;
+        fotoActiva = 0;
+        lightboxAbierto = false;
+        mapaPorDibujar = TieneUbicacion(negocio);
+        enfocarPanel = true;   // para que la tecla Esc funcione de inmediato
+    }
+
+    private async Task CerrarPanel()
+    {
+        seleccionado = null;
+        lightboxAbierto = false;
+        mapaPorDibujar = false;
+        try { await JS.InvokeVoidAsync("mapaRevision.destruir"); } catch { }
+    }
+
+    private async Task TeclaEnPanel(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape" && !lightboxAbierto) await CerrarPanel();
+    }
+
+    private void TeclaEnTarjeta(KeyboardEventArgs e, NegocioPendienteAprobacionDto negocio)
+    {
+        if (e.Key is "Enter" or " ") AbrirPanel(negocio);
+    }
+
+    private void SeleccionarFoto(int indice) => fotoActiva = indice;
+
+    // ════════════════ LIGHTBOX ════════════════
+    private void AbrirLightbox()
+    {
+        if (seleccionado?.Fotos.Count > 0)
+        {
+            lightboxAbierto = true;
+            enfocarLightbox = true;
         }
     }
 
-    private void MostrarToast(string mensaje, bool error = false, string? titulo = null)
+    private void CerrarLightbox()
+    {
+        lightboxAbierto = false;
+        enfocarPanel = true;
+    }
+
+    private void SiguienteFoto()
+    {
+        var total = seleccionado?.Fotos.Count ?? 0;
+        if (total > 0) fotoActiva = (fotoActiva + 1) % total;
+    }
+
+    private void AnteriorFoto()
+    {
+        var total = seleccionado?.Fotos.Count ?? 0;
+        if (total > 0) fotoActiva = (fotoActiva - 1 + total) % total;
+    }
+
+    private void TeclaEnLightbox(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape": CerrarLightbox(); break;
+            case "ArrowRight": SiguienteFoto(); break;
+            case "ArrowLeft": AnteriorFoto(); break;
+        }
+    }
+
+    // ════════════════ C2: FILTROS ════════════════
+    private void FiltrarCategoria(string? categoria) => categoriaFiltro = categoria;
+    private void FiltrarMunicipio(string? municipio) => municipioFiltro = municipio;
+    private void LimpiarBusqueda() => textoBusqueda = "";
+
+    private void LimpiarFiltros()
+    {
+        textoBusqueda = "";
+        categoriaFiltro = null;
+        municipioFiltro = null;
+    }
+
+    // ════════════════ B2: CALIDAD ════════════════
+    private static List<Criterio> Calidad(NegocioPendienteAprobacionDto n) => new()
+    {
+        new("Tiene al menos una foto", n.Fotos.Count > 0),
+        new("Descripción de 50 caracteres o más", (n.Descripcion?.Trim().Length ?? 0) >= 50),
+        new("Ubicación marcada en el mapa", TieneUbicacion(n)),
+        new("Teléfono de contacto", !string.IsNullOrWhiteSpace(n.Telefono)),
+        new("Horario de atención", !string.IsNullOrWhiteSpace(n.Horario))
+    };
+
+    private static int Puntaje(NegocioPendienteAprobacionDto n) => Calidad(n).Count(c => c.Cumple);
+
+    private static string ClaseCalidad(int puntaje) => puntaje >= 4 ? "alta" : puntaje >= 2 ? "media" : "baja";
+
+    private static string ConsejoCalidad(int puntaje) => puntaje switch
+    {
+        5 => "Registro completo: listo para publicar.",
+        >= 3 => "Registro aceptable. Puedes aprobarlo y pedir al comerciante que complete lo faltante.",
+        _ => "Registro incompleto: revísalo con cuidado antes de aprobar."
+    };
+
+    private static bool TieneUbicacion(NegocioPendienteAprobacionDto n) =>
+        n.Latitud is not null && n.Longitud is not null && !(n.Latitud == 0 && n.Longitud == 0);
+
+    // ════════════════ AYUDANTES DE FORMATO ════════════════
+    private string Foto(string ruta) => Api.Url(ruta);
+
+    private static string Avatar(string? nombre) =>
+        $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(string.IsNullOrWhiteSpace(nombre) ? "?" : nombre)}&background=213b31&color=fff&size=96";
+
+    // Punto decimal siempre (en español sería coma y Google Maps no lo entiende)
+    private static string Coord(decimal? valor) => valor?.ToString(CultureInfo.InvariantCulture) ?? "";
+
+    private static string TiempoEspera(DateTime? fecha)
+    {
+        if (fecha is null) return "Sin fecha";
+        var t = DateTime.Now - fecha.Value;
+        if (t.TotalMinutes < 1) return "Ahora";
+        if (t.TotalMinutes < 60) return $"Hace {(int)t.TotalMinutes} min";
+        if (t.TotalHours < 24) return $"Hace {(int)t.TotalHours} h";
+        var dias = (int)t.TotalDays;
+        return dias == 1 ? "Hace 1 día" : $"Hace {dias} días";
+    }
+
+    private static string TiempoCorto(DateTime? fecha)
+    {
+        if (fecha is null) return "—";
+        var t = DateTime.Now - fecha.Value;
+        if (t.TotalMinutes < 60) return $"{Math.Max(1, (int)t.TotalMinutes)} min";
+        if (t.TotalHours < 24) return $"{(int)t.TotalHours} h";
+        return $"{(int)t.TotalDays} d";
+    }
+
+    // Color según cuánto lleva esperando el comerciante
+    private static string ClaseEspera(DateTime? fecha)
+    {
+        if (fecha is null) return "espera-sin";
+        var dias = (DateTime.Now - fecha.Value).TotalDays;
+        return dias < 1 ? "espera-reciente" : dias < 3 ? "espera-media" : "espera-alta";
+    }
+
+    private static string IconoCategoria(string? nombre)
+    {
+        var n = Normalizar(nombre);
+        if (n.Contains("gastr") || n.Contains("restaur")) return "ph-fork-knife";
+        if (n.Contains("hosped") || n.Contains("hotel")) return "ph-bed";
+        if (n.Contains("artesan")) return "ph-palette";
+        if (n.Contains("cafe")) return "ph-coffee";
+        if (n.Contains("tour") || n.Contains("aventura")) return "ph-compass";
+        return "ph-storefront";
+    }
+
+    // Igual que en Inicio.razor: minúsculas y sin tildes ("Ráquira" → "raquira")
+    private static string Normalizar(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return "";
+
+        var descompuesto = texto.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var resultado = new StringBuilder(descompuesto.Length);
+
+        foreach (var caracter in descompuesto)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark)
+                resultado.Append(caracter);
+        }
+
+        return resultado.ToString();
+    }
+
+    // Plantilla reutilizable para cada dato de contacto del panel
+    private RenderFragment DatoContacto(string icono, string etiqueta, string? valor) =>
+        @<div class="dato @(string.IsNullOrWhiteSpace(valor) ? "vacio" : "")">
+            <span class="dato-icono"><i class="ph @icono" aria-hidden="true"></i></span>
+            <div>
+                <span class="dato-etiqueta">@etiqueta</span>
+                <span class="dato-valor">@(string.IsNullOrWhiteSpace(valor) ? "No registrado" : valor)</span>
+            </div>
+        </div>;
+
+    // ════════════════ TOAST ════════════════
+    private void MostrarToast(string mensaje, string titulo, string tipo = "success", bool deshacer = false, int duracionMs = 4000)
     {
         _toastCts?.Cancel();
         _toastCts = new CancellationTokenSource();
 
         mensajeAlerta = mensaje;
-        esError = error;
         tituloAlerta = titulo;
+        tipoToast = tipo;
+        mostrarDeshacer = deshacer;
+        duracionToastMs = duracionMs;
+        toastVersion++;
         StateHasChanged();
 
         var token = _toastCts.Token;
@@ -219,15 +935,13 @@
         {
             try
             {
-                await Task.Delay(4000, token);
-                if (!token.IsCancellationRequested)
+                await Task.Delay(duracionMs, token);
+                await InvokeAsync(() =>
                 {
-                    await InvokeAsync(() =>
-                    {
-                        mensajeAlerta = null;
-                        StateHasChanged();
-                    });
-                }
+                    mensajeAlerta = null;
+                    mostrarDeshacer = false;
+                    StateHasChanged();
+                });
             }
             catch (TaskCanceledException) { }
         });
@@ -235,10 +949,13 @@
 
     private void CerrarAlerta()
     {
+        // Cerrar el aviso NO deshace la acción: solo lo oculta
         _toastCts?.Cancel();
         mensajeAlerta = null;
+        mostrarDeshacer = false;
     }
 
+    // ════════════════ NAVEGACIÓN ════════════════
     private async Task VolverDashboard()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
@@ -246,5 +963,23 @@
             Nav.NavigateTo("/admin/dashboard");
         else
             Nav.NavigateTo("/municipio/dashboard");
+    }
+
+    // ════════════════ LIMPIEZA ════════════════
+    public async ValueTask DisposeAsync()
+    {
+        Notif.NotificacionRecibida -= AlRecibirNotificacion;
+        _toastCts?.Cancel();
+
+        // Si el admin sale de la página dentro de los 5 s, la decisión se envía igual
+        if (accionPendiente is not null)
+        {
+            var accion = accionPendiente;
+            accionPendiente = null;
+            accion.Cts.Cancel();
+            _ = NegocioService.CambiarEstadoAsync(accion.Negocio.IdNegocio, accion.Estado);
+        }
+
+        try { await JS.InvokeVoidAsync("mapaRevision.destruir"); } catch { }
     }
 }

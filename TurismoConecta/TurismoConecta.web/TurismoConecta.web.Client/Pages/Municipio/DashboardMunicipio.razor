@@ -1,6 +1,8 @@
 @page "/municipio/dashboard"
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IDisposable
+@inject NotificacionTiempoRealService Notif
 @using TurismoConecta.web.Client.Services
 @using TurismoConecta.web.Client.Models
 @inject NegocioApiService NegocioService
@@ -48,6 +50,7 @@
                         </a>
                     </nav>
                     <div class="muni-topbar-right">
+                        <CampanaNotificaciones />
                         <div class="badge-admin-info">
                             <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(authContext.User.Identity?.Name ?? "Gestor")&background=213b31&color=fff&size=80" alt="Foto" class="admin-avatar-topbar"
                                  onerror="this.onerror=null;this.style.display='none';" />
@@ -256,7 +259,18 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cargando = true;
+        // ◆ CAMBIO: escuchar las notificaciones en tiempo real
+        Notif.NotificacionRecibida += AlRecibirNotificacion;
+
+        await CargarPendientesAsync();
+    }
+
+    // ◆ NUEVO: la carga se separó en su propio método para poder repetirla
+    //   cuando llegue un aviso, sin volver a ejecutar OnInitializedAsync.
+    //   mostrarCargando = false → recarga en silencio (sin spinner que haga "parpadear" la página).
+    private async Task CargarPendientesAsync(bool mostrarCargando = true)
+    {
+        if (mostrarCargando) cargando = true;
         try
         {
             pendientes = await NegocioService.ListarPendientesAsync();
@@ -271,6 +285,20 @@
         }
     }
 
+    // ◆ NUEVO: se ejecuta cuando SignalR entrega "NuevaNotificacion" a este usuario
+    private void AlRecibirNotificacion(NotificacionDto notificacion)
+    {
+        // Solo nos interesa "llegó un negocio nuevo por revisar"
+        if (notificacion.Codigo != CodigosNotificacion.NegocioPendiente) return;
+
+        // SignalR llama desde fuera de Blazor → InvokeAsync devuelve el control al componente
+        _ = InvokeAsync(async () =>
+        {
+            await CargarPendientesAsync(mostrarCargando: false);
+            StateHasChanged();   // repinta el KPI, el badge y la lista
+        });
+    }
+
     private async Task CerrarSesion()
     {
         await JS.InvokeVoidAsync("borrarToken");
@@ -279,5 +307,10 @@
             jwt.NotificarCambioAutenticacion();
         }
         Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        Notif.NotificacionRecibida -= AlRecibirNotificacion;
     }
 }

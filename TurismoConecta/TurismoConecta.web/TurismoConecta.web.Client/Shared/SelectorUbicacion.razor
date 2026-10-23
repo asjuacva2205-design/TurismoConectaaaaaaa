@@ -1,0 +1,129 @@
+@using System.Globalization
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="selector-ubicacion">
+    <p class="selector-ayuda">
+        <i class="ph ph-hand-pointing" aria-hidden="true"></i>
+        Haz clic en el mapa para marcar dónde queda tu negocio. Puedes arrastrar el pin para ajustarlo.
+    </p>
+
+    <div id="@idMapa" class="selector-mapa"></div>
+
+    <div class="selector-estado @(TieneUbicacion ? "ok" : "")">
+        @if (TieneUbicacion)
+        {
+            <span>
+                <i class="ph-fill ph-check-circle" aria-hidden="true"></i>
+                Ubicación marcada (@Formato(Latitud), @Formato(Longitud))
+            </span>
+            <button type="button" class="btn-quitar-pin" @onclick="QuitarUbicacion">
+                <i class="ph ph-trash" aria-hidden="true"></i> Quitar
+            </button>
+        }
+        else
+        {
+            <span>
+                <i class="ph ph-map-pin-simple-slash" aria-hidden="true"></i>
+                Aún no has marcado la ubicación
+            </span>
+        }
+    </div>
+</div>
+
+@code {
+    // Two-way binding: el formulario usa @bind-Latitud y @bind-Longitud
+    [Parameter] public decimal? Latitud { get; set; }
+    [Parameter] public EventCallback<decimal?> LatitudChanged { get; set; }
+    [Parameter] public decimal? Longitud { get; set; }
+    [Parameter] public EventCallback<decimal?> LongitudChanged { get; set; }
+
+    // Coordenadas del municipio elegido (para centrar el mapa)
+    [Parameter] public decimal? CentroLatitud { get; set; }
+    [Parameter] public decimal? CentroLongitud { get; set; }
+
+    // Id único: así el componente puede usarse en varias páginas sin chocar
+    private readonly string idMapa = $"selector-{Guid.NewGuid():N}";
+    private DotNetObjectReference<SelectorUbicacion>? referencia;
+    private bool iniciado;
+    private decimal? centroLatAnterior;
+    private decimal? centroLngAnterior;
+
+    private bool TieneUbicacion => Latitud is not null && Longitud is not null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        referencia = DotNetObjectReference.Create(this);
+        centroLatAnterior = CentroLatitud;
+        centroLngAnterior = CentroLongitud;
+
+        try
+        {
+            await JS.InvokeVoidAsync("mapaRevision.iniciarSelector", idMapa, referencia,
+                (double?)Latitud, (double?)Longitud, (double?)CentroLatitud, (double?)CentroLongitud);
+            iniciado = true;
+        }
+        catch (JSException) { /* si el JS no cargó, el formulario sigue funcionando */ }
+    }
+
+    // Si el comerciante cambia el municipio en el <select>, el mapa vuela hacia él
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!iniciado) return;
+        if (CentroLatitud == centroLatAnterior && CentroLongitud == centroLngAnterior) return;
+
+        centroLatAnterior = CentroLatitud;
+        centroLngAnterior = CentroLongitud;
+
+        if (CentroLatitud is not null && CentroLongitud is not null)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("mapaRevision.centrarSelector",
+                    (double)CentroLatitud.Value, (double)CentroLongitud.Value);
+            }
+            catch (JSException) { }
+        }
+    }
+
+    // ◆ CORREGIDO: lo llama JavaScript al hacer clic o al soltar el pin
+    [JSInvokable]
+    public async Task AlMarcarUbicacion(double lat, double lng)
+    {
+        // Se guardan PRIMERO en variables locales.
+        // Al avisar la latitud, el formulario se repinta y le devuelve a este componente
+        // sus parámetros viejos (Longitud = null). Con las variables locales ese "pisón" no afecta.
+        decimal nuevaLatitud = Math.Round((decimal)lat, 6);    // 6 decimales ≈ 10 cm de precisión
+        decimal nuevaLongitud = Math.Round((decimal)lng, 6);
+
+        Latitud = nuevaLatitud;
+        Longitud = nuevaLongitud;
+
+        await LatitudChanged.InvokeAsync(nuevaLatitud);
+        await LongitudChanged.InvokeAsync(nuevaLongitud);
+        StateHasChanged();
+    }
+
+    // ◆ CORREGIDO: mismo patrón al quitar el pin
+    private async Task QuitarUbicacion()
+    {
+        Latitud = null;
+        Longitud = null;
+
+        await LatitudChanged.InvokeAsync(null);
+        await LongitudChanged.InvokeAsync(null);
+
+        try { await JS.InvokeVoidAsync("mapaRevision.quitarPinSelector"); } catch (JSException) { }
+    }
+
+    private static string Formato(decimal? valor) =>
+        valor?.ToString("0.00000", CultureInfo.InvariantCulture) ?? "";
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("mapaRevision.destruirSelector"); } catch { }
+        referencia?.Dispose();
+    }
+}

@@ -98,6 +98,15 @@
                             <InputTextArea @bind-Value="dto.Descripcion" class="textarea-editorial" rows="3"
                                            placeholder="Describe tu propuesta, especialidades, platos típicos o comodidades para los viajeros..." />
                         </div>
+
+                        @* ◆ CAMBIO 1: mapa para marcar la ubicación (llena dto.Latitud y dto.Longitud) *@
+                        <div class="form-grupo">
+                            <label>Ubicación en el mapa</label>
+                            <SelectorUbicacion @bind-Latitud="dto.Latitud"
+                                               @bind-Longitud="dto.Longitud"
+                                               CentroLatitud="MunicipioElegido?.Latitud"
+                                               CentroLongitud="MunicipioElegido?.Longitud" />
+                        </div>
                     </div>
 
                     <!-- SECCIÓN 2: CONTACTO Y HORARIOS -->
@@ -192,6 +201,10 @@
     private bool subiendoFoto = false;
     private string? mensajeError;
     private string urlFotoManual = "";
+
+    // ◆ CAMBIO 2: el municipio elegido en el <select>, para centrar el mapa en él
+    private MunicipioListadoDto? MunicipioElegido =>
+        listaMunicipios.FirstOrDefault(m => m.IdMunicipio == dto.IdMunicipio);
 
     protected override async Task OnInitializedAsync()
     {

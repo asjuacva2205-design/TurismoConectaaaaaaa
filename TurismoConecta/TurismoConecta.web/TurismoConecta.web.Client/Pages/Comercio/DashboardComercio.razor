@@ -1,9 +1,11 @@
 @page "/comercio/dashboard"
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IDisposable
 @using TurismoConecta.web.Client.Services
 @using TurismoConecta.web.Client.Models
 @inject NegocioApiService NegocioService
+@inject NotificacionTiempoRealService Notif
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
@@ -42,6 +44,7 @@
                         </a>
                     </nav>
                     <div class="comercio-topbar-right">
+                        <CampanaNotificaciones />
                         <span class="badge-comercio">Comerciante</span>
                         <a href="/perfil" class="comercio-avatar-link">
                             @authContext.User.Identity?.Name?.Split(' ').FirstOrDefault() ?? "Mi Cuenta"
@@ -252,7 +255,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cargando = true;
+        // ◆ Escuchar avisos en tiempo real
+        Notif.NotificacionRecibida += AlRecibirNotificacion;
+
+        await CargarMisNegociosAsync();
+    }
+
+    // ◆ La carga en un método aparte, para repetirla cuando llegue un aviso.
+    //   mostrarCargando = false → recarga sin spinner (la página no "parpadea").
+    private async Task CargarMisNegociosAsync(bool mostrarCargando = true)
+    {
+        if (mostrarCargando) cargando = true;
         try
         {
             misNegocios = await NegocioService.ListarMisNegociosAsync();
@@ -264,6 +277,19 @@
         }
     }
 
+    // ◆ Si el admin municipal aprobó o rechazó, recargamos los KPIs y los chips de estado
+    private void AlRecibirNotificacion(NotificacionDto notificacion)
+    {
+        if (notificacion.Codigo != CodigosNotificacion.NegocioAprobado &&
+            notificacion.Codigo != CodigosNotificacion.NegocioRechazado) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await CargarMisNegociosAsync(mostrarCargando: false);
+            StateHasChanged();
+        });
+    }
+
     private async Task CerrarSesion()
     {
         await JS.InvokeVoidAsync("borrarToken");
@@ -272,5 +298,11 @@
             jwt.NotificarCambioAutenticacion();
         }
         Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    // ◆ Obligatorio por @implements IDisposable
+    public void Dispose()
+    {
+        Notif.NotificacionRecibida -= AlRecibirNotificacion;
     }
 }

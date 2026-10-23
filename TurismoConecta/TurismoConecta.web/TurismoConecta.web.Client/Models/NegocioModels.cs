@@ -66,6 +66,19 @@ namespace TurismoConecta.web.Client.Models
         public int IdMunicipio { get; set; }
         public string NombreMunicipio { get; set; } = string.Empty;
         public string NombreCategoria { get; set; } = string.Empty;
+
+        // ◆ NUEVO: mismo contrato que NegocioPendienteDto de la API
+        public string? Descripcion { get; set; }
+        public string? Direccion { get; set; }
+        public string? Telefono { get; set; }
+        public string? Email { get; set; }
+        public string? Horario { get; set; }
+        public decimal? Latitud { get; set; }
+        public decimal? Longitud { get; set; }
+        public List<string> Fotos { get; set; } = new();
+        public List<string> Etiquetas { get; set; } = new();
+        public string EmailPropietario { get; set; } = string.Empty;
+        public int NegociosAprobadosPropietario { get; set; }
     }
 
 
