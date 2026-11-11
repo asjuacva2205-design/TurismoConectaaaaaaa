@@ -1,0 +1,213 @@
+.panel-usuario {
+    --verde: #1B3320;
+    --verde-medio: #2F5D50;
+    --dorado: #D9A441;
+    --terracota: #B5442E;
+    --crema: #FAF6EE;
+    --tinta: #1C2B24;
+    --tinta-suave: #4B5A52;
+    --blanco: #FFFFFF;
+    --radio: 14px;
+    --sombra: 0 10px 30px rgba(28, 43, 36, 0.08);
+
+    min-height: 100vh;
+    background: var(--crema);
+    color: var(--tinta);
+    font-family: 'Montserrat', sans-serif;
+    padding-bottom: 5rem;
+}
+
+/* ── Topbar ── */
+.panel-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 0 2rem;
+    height: 62px;
+    background: var(--verde);
+}
+
+.panel-logo img { height: 38px; width: auto; }
+
+.panel-nav { display: flex; gap: 1.4rem; flex: 1; }
+
+.panel-nav a {
+    color: var(--crema);
+    text-decoration: none;
+    font-size: .85rem;
+    font-weight: 500;
+    opacity: .85;
+}
+
+.panel-nav a:hover { color: var(--dorado); opacity: 1; }
+
+.panel-topbar-der { display: flex; align-items: center; gap: 1rem; }
+
+.panel-nombre { color: var(--dorado); font-weight: 600; font-size: .85rem; }
+
+.panel-salir {
+    background: transparent;
+    border: 1px solid rgba(250, 246, 238, .4);
+    color: var(--crema);
+    padding: .35rem .9rem;
+    border-radius: 999px;
+    font-size: .78rem;
+    cursor: pointer;
+}
+
+/* ── Contenido ── */
+.panel-main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 2.4rem 1.5rem 0;
+}
+
+.panel-eyebrow {
+    display: block;
+    color: var(--terracota);
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    margin-bottom: .4rem;
+}
+
+.panel-bienvenida h1 {
+    margin: 0 0 .6rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+}
+
+.panel-bienvenida h1 em { color: var(--terracota); font-style: italic; }
+
+.panel-bienvenida p {
+    max-width: 62ch;
+    color: var(--tinta-suave);
+    line-height: 1.6;
+    margin: 0 0 1.4rem;
+}
+
+.panel-acciones { display: flex; gap: .8rem; flex-wrap: wrap; }
+
+.panel-btn {
+    display: inline-block;
+    background: var(--terracota);
+    color: #fff;
+    padding: .65rem 1.3rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: .85rem;
+    text-decoration: none;
+    border: 1px solid var(--terracota);
+    cursor: pointer;
+}
+
+.panel-btn:hover { filter: brightness(.92); }
+
+.panel-btn-sec {
+    background: transparent;
+    color: var(--verde);
+    border-color: var(--verde);
+}
+
+.panel-titulo {
+    margin: 2.6rem 0 1.1rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.8rem;
+}
+
+/* ── Rutas ── */
+.panel-rutas {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.3rem;
+}
+
+.ruta-card {
+    background: var(--blanco);
+    border-radius: var(--radio);
+    padding: 1.4rem;
+    box-shadow: var(--sombra);
+    border-top: 4px solid var(--dorado);
+    display: flex;
+    flex-direction: column;
+}
+
+.ruta-card h3 {
+    margin: 0 0 .3rem;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+}
+
+.ruta-meta { margin: 0 0 .6rem; color: var(--tinta-suave); font-size: .8rem; }
+
+.ruta-camino {
+    margin: 0 0 1.1rem;
+    color: var(--verde-medio);
+    font-weight: 600;
+    font-size: .88rem;
+    line-height: 1.5;
+}
+
+.ruta-botones { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: auto; }
+
+.panel-vacio {
+    background: var(--blanco);
+    border-radius: var(--radio);
+    padding: 2rem;
+    text-align: center;
+    color: var(--tinta-suave);
+    box-shadow: var(--sombra);
+}
+
+/* ── Pasos ── */
+.pasos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.2rem;
+}
+
+.paso {
+    background: var(--blanco);
+    border-radius: var(--radio);
+    padding: 1.2rem;
+    box-shadow: var(--sombra);
+}
+
+.paso span {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--verde);
+    color: var(--dorado);
+    font-weight: 700;
+    font-size: .8rem;
+    margin-bottom: .6rem;
+}
+
+.paso p { margin: 0; font-size: .86rem; line-height: 1.55; color: var(--tinta-suave); }
+
+/* ── Sin sesión ── */
+.panel-no-auth {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .8rem;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    padding: 2rem;
+}
+
+@media (max-width: 760px) {
+    .panel-nav { display: none; }
+    .panel-topbar { padding: 0 1rem; gap: 1rem; }
+    .panel-topbar-der { margin-left: auto; }
+}

@@ -1,4 +1,4 @@
-﻿namespace TurismoConecta.api.DTOs.Negocios
+namespace TurismoConecta.api.DTOs.Negocios
 {
     public class NegocioDto
     {
@@ -8,6 +8,8 @@
         public string Estado { get; set; } = string.Empty;
         public int IdCategoria { get; set; }
         public int IdMunicipio { get; set; }
+        public string NombreCategoria { get; set; } = string.Empty;
+        public string NombreMunicipio { get; set; } = string.Empty;
         public string? Telefono { get; set; }
         public string? Horario { get; set; }
         public string? Direccion { get; set; }

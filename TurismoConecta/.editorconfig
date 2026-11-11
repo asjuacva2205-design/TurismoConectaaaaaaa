@@ -1,0 +1,11 @@
+# root = true: este es el archivo principal; no busca otros en carpetas superiores
+root = true
+
+[*]
+# Todos los archivos se guardan en UTF-8. Esto evita el problema de los "�"
+charset = utf-8
+insert_final_newline = true
+
+[*.{cs,razor}]
+indent_style = space
+indent_size = 4

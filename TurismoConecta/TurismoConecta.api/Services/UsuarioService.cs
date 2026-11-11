@@ -3,15 +3,19 @@ using Microsoft.EntityFrameworkCore;
 using TurismoConecta.api.Data;
 using TurismoConecta.api.DTOs.Usuarios;
 using TurismoConecta.api.Services.Interfaces;
+using Microsoft.AspNetCore.Identity;
+using TurismoConecta.api.Constants;
+using TurismoConecta.api.Models;
 
 namespace TurismoConecta.api.Services
 {
     public class UsuarioService : IUsuarioService
     {
         private readonly AppDbContext _context;
-        private readonly IWebHostEnvironment _env; 
+        private readonly IWebHostEnvironment _env;
+        private readonly PasswordHasher<Usuario> _hasher = new();
 
-        
+
         public UsuarioService(AppDbContext context, IWebHostEnvironment env)
         {
             _context = context;
@@ -259,6 +263,58 @@ namespace TurismoConecta.api.Services
             _context.Usuarios.Remove(usuario);
             await _context.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<(bool exito, string? error)> CrearUsuarioAdminAsync(UsuarioAdminCrearDto dto)
+        {
+            // 1. Normalizar el correo para comparar y guardar siempre igual
+            var email = dto.Email.Trim().ToLowerInvariant();
+
+            // 2. El correo no puede repetirse
+            if (await _context.Usuarios.AnyAsync(u => u.Email == email))
+                return (false, "Ya existe una cuenta registrada con ese correo.");
+
+            // 3. El rol debe existir en la tabla Rol
+            var rol = await _context.Rols.FirstOrDefaultAsync(r => r.Nombre == dto.Rol);
+            if (rol is null)
+                return (false, $"El rol '{dto.Rol}' no existe.");
+
+            // 4. Un AdminMunicipio necesita un municipio real asignado
+            int? municipioAsignado = null;
+            if (rol.Nombre == Roles.AdminMunicipio)
+            {
+                if (dto.MunicipioAsignadoId is null)
+                    return (false, "Un administrador municipal debe tener un municipio asignado.");
+
+                bool municipioExiste = await _context.Municipios
+                    .AnyAsync(m => m.IdMunicipio == dto.MunicipioAsignadoId);
+                if (!municipioExiste)
+                    return (false, "El municipio seleccionado no existe.");
+
+                municipioAsignado = dto.MunicipioAsignadoId;
+            }
+
+            // 5. Crear el usuario
+            var usuario = new Usuario
+            {
+                Nombre = dto.Nombre.Trim(),
+                Apellido = dto.Apellido.Trim(),
+                Email = email,
+                Telefono = string.IsNullOrWhiteSpace(dto.Telefono) ? null : dto.Telefono.Trim(),
+                IdRol = rol.IdRol,
+                MunicipioAsignadoId = municipioAsignado,
+                FechaRegistro = DateTime.UtcNow,
+                EmailConfirmado = false,
+                Activo = true,
+                PasswordHash = string.Empty
+            };
+
+            // 6. Cifrar la contraseña (mismo método que AuthService → el login la reconocerá)
+            usuario.PasswordHash = _hasher.HashPassword(usuario, dto.Password);
+
+            _context.Usuarios.Add(usuario);
+            await _context.SaveChangesAsync();
+            return (true, null);
         }
 
         public async Task<bool> CambiarEstadoAsync(int idUsuario, bool activo)

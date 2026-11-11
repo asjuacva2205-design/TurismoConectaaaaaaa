@@ -5,6 +5,7 @@ using TurismoConecta.api.DTOs.Municipios;
 using TurismoConecta.api.Models;
 using TurismoConecta.api.Services.Interfaces;
 using TurismoConecta.api.Services.Mappers;
+using TurismoConecta.api.Constants;
 
 namespace TurismoConecta.api.Services
 {
@@ -87,6 +88,22 @@ namespace TurismoConecta.api.Services
             };
         }
 
+        public async Task<List<MunicipioMapaDto>> ListarParaMapaAsync(CancellationToken ct = default)
+        {
+            return await _context.Municipios
+                .AsNoTracking()
+                .Where(m => m.Activo)
+                .OrderBy(m => m.Nombre)
+                .Select(m => new MunicipioMapaDto
+                {
+                    IdMunicipio = m.IdMunicipio,
+                    Nombre = m.Nombre,
+                    Latitud = (double?)m.Latitud,
+                    Longitud = (double?)m.Longitud
+                })
+                .ToListAsync(ct);
+        }
+
         public async Task<List<MunicipioListadoDto>> BuscarAsync(string? texto, int? idEtiqueta, CancellationToken ct = default)
         {
             var query = _context.Municipios.Where(m => m.Activo).AsQueryable();
@@ -149,7 +166,7 @@ namespace TurismoConecta.api.Services
             if (admin is null) return (false, "Usuario administrador no encontrado.");
 
             // Verificamos permisos: AdminGeneral o AdminPrincipal puede editar cualquiera; AdminMunicipio solo el asignado
-            bool esAdminGeneral = admin.IdRolNavigation?.Nombre == "AdminGeneral" || admin.IdRolNavigation?.Nombre == "AdminPrincipal" || admin.IdRol == 1;
+            bool esAdminGeneral = admin.IdRolNavigation?.Nombre == Roles.AdminGeneral; 
             bool esAdminDelMunicipio = admin.MunicipioAsignadoId == id;
 
             if (!esAdminGeneral && !esAdminDelMunicipio)

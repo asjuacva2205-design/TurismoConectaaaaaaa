@@ -6,6 +6,8 @@
 @inject MunicipioApiService ApiService
 @inject NavigationManager Nav
 @implements IDisposable
+@inject ApiConfig Api
+
 
 <HeadContent>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 </HeadContent>
 
-<div class="pagina-municipios">
+<div class="pagina-municipios"> 
 
     @* ============ HERO ============ *@
     <section class="hero">
@@ -137,8 +139,8 @@
                     <article class="card-municipio" @key="m.Id">
                         <div class="card-img-container">
                             <img src="@m.ImagenUrl" alt="@m.Nombre"
-                                 onerror="this.src='https://images.unsplash.com/photo-1518105779142-d975f22f1b0a?q=80&w=500&auto=format&fit=crop';" />
-
+                                 onerror="this.onerror=null; this.src='@ApiConfig.ImagenPorDefecto';" />
+                                 
                             <div class="card-badges">
                                 @foreach (var etiqueta in m.Etiquetas.Take(2))
                                 {
@@ -208,67 +210,49 @@
     // "Resumen" y "Recomendado" se calculan aquí a partir de esos datos como marcador
     // visual temporal. Cuando el backend agregue campos reales (Descripcion, EsRecomendado,
     // Provincia, DistanciaKm) basta con reemplazar CrearVista(...) por esos valores
-    
-        // ---- Vista enriquecida sobre el DTO de la API ----
-        private record MunicipioVista(int Id, string Nombre, string ImagenUrl, List<string> Etiquetas, string Resumen, bool Recomendado);
 
-        private List<MunicipioListadoDto>? municipios;
-        private List<MunicipioVista> vistas = new();
-        private string textoBusqueda = "";
-        private HashSet<int> seleccionados = new();
-        private HashSet<string> filtrosActivos = new();
-        private bool cargando = true;
-        private bool huboError;
-        private int paginaActual = 1;
-        private int totalPaginas = 1;
+    // ---- Vista enriquecida sobre el DTO de la API ----
+    private record MunicipioVista(int Id, string Nombre, string ImagenUrl, List<string> Etiquetas, string Resumen, bool Recomendado);
 
-        private List<MunicipioVista> destacados = new();
-        private int indiceCarrusel = 0;
-        private bool carruselPausado = false;
-        private System.Timers.Timer? _carruselTimer;
+    private List<MunicipioListadoDto>? municipios;
+    private List<MunicipioVista> vistas = new();
+    private string textoBusqueda = "";
+    private HashSet<int> seleccionados = new();
+    private HashSet<string> filtrosActivos = new();
+    private bool cargando = true;
+    private bool huboError;
+    private int paginaActual = 1;
+    private int totalPaginas = 1;
 
-        private CancellationTokenSource? _ctsBusqueda;
-        private System.Timers.Timer? _debounceTimer;
+    private List<MunicipioVista> destacados = new();
+    private int indiceCarrusel = 0;
+    private bool carruselPausado = false;
+    private System.Timers.Timer? _carruselTimer;
 
-        private List<string> etiquetasDisponibles =>
-            vistas.SelectMany(v => v.Etiquetas).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(e => e).ToList();
+    private CancellationTokenSource? _ctsBusqueda;
+    private System.Timers.Timer? _debounceTimer;
 
-        private IEnumerable<MunicipioVista>? municipiosFiltrados =>
-            vistas.Where(v => !filtrosActivos.Any() || filtrosActivos.All(f => v.Etiquetas.Contains(f, StringComparer.OrdinalIgnoreCase)));
+    private List<string> etiquetasDisponibles =>
+        vistas.SelectMany(v => v.Etiquetas).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(e => e).ToList();
 
-        protected override async Task OnInitializedAsync() => await CargarPagina(1);
+    private IEnumerable<MunicipioVista>? municipiosFiltrados =>
+        vistas.Where(v => !filtrosActivos.Any() || filtrosActivos.All(f => v.Etiquetas.Contains(f, StringComparer.OrdinalIgnoreCase)));
 
-        // ---- Misma lógica de imagen que tenías en el archivo original ----
-        private string ObtenerImagenMunicipio(string nombre, string? imagenUrl)
-        {
-            if (!string.IsNullOrWhiteSpace(imagenUrl) && imagenUrl.StartsWith("http"))
-                return imagenUrl;
+    protected override async Task OnInitializedAsync() => await CargarPagina(1);
 
-            if (string.IsNullOrWhiteSpace(nombre))
-                return "https://images.unsplash.com/photo-1518105779142-d975f22f1b0a?q=80&w=500&auto=format&fit=crop";
 
-            string nombreLimpio = nombre.Replace(" de ", "")
-                                        .Replace("á", "a").Replace("Á", "A")
-                                        .Replace("é", "e").Replace("É", "E")
-                                        .Replace("í", "i").Replace("Í", "I")
-                                        .Replace("ó", "o").Replace("Ó", "O")
-                                        .Replace("ú", "u").Replace("Ú", "U")
-                                        .Replace(" ", "");
 
-            return $"https://localhost:7078/images/municipios/{nombreLimpio}ImgPerfil.jpg";
-        }
+    private MunicipioVista CrearVista(MunicipioListadoDto m)
+    {
+        var etiquetas = m.Etiquetas?.ToList() ?? new List<string>();
 
-        private MunicipioVista CrearVista(MunicipioListadoDto m)
-        {
-            var etiquetas = m.Etiquetas?.ToList() ?? new List<string>();
+        var resumen = etiquetas.Any()
+            ? $"Un pueblo para vivir {string.Join(" y ", etiquetas.Take(2)).ToLowerInvariant()}, a tu ritmo."
+            : "Un rincón de Boyacá con historia, montañas y gente cálida esperando ser descubierto.";
+        if (resumen.Length > 100) resumen = resumen[..97] + "...";
 
-            var resumen = etiquetas.Any()
-                ? $"Un pueblo para vivir {string.Join(" y ", etiquetas.Take(2)).ToLowerInvariant()}, a tu ritmo."
-                : "Un rincón de Boyacá con historia, montañas y gente cálida esperando ser descubierto.";
-            if (resumen.Length > 100) resumen = resumen[..97] + "...";
-
-            var recomendado = etiquetas.Count >= 2;
-            var imagen = ObtenerImagenMunicipio(m.Nombre, m.ImagenUrl);
+        var recomendado = etiquetas.Count >= 2;
+        var imagen = Api.ImagenMunicipio(m.Nombre, m.ImagenUrl);
 
             return new MunicipioVista(m.IdMunicipio, m.Nombre, imagen, etiquetas, resumen, recomendado);
         }

@@ -274,6 +274,11 @@
     margin-bottom: 0;
 }
 
+/* Reseñas: ocupa todo el ancho debajo del panel doble */
+.comercio-card-resenas {
+    margin-top: 1.25rem;
+}
+
 .comercio-card-header {
     display: flex;
     justify-content: space-between;

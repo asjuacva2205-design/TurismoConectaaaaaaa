@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="Pages/Establecimientos/EditarEstablecimiento.razor.css" />
 </HeadContent>
 
-<AuthorizeView Roles="AdminComercio,AdminGeneral,AdminPrincipal">
+<AuthorizeView Roles="@Roles.GeneralOEstablecimiento">
     <Authorized Context="authContext">
         <div class="form-negocio-page">
             <header class="form-negocio-topbar">
@@ -86,12 +86,13 @@
                                 <div class="form-grupo">
                                     <label>Categoría *</label>
                                     <select class="input-editorial" @bind="dto.IdCategoria">
-                                        <option value="1">Hospedaje & Hotelería</option>
-                                        <option value="2">Gastronomía & Cafés</option>
-                                        <option value="3">Ecoturismo, Parques & Aventura</option>
-                                        <option value="4">Artesanías & Cultura Local</option>
-                                        <option value="5">Comercio Local / Otros</option>
+                                        <option value="0">-- Selecciona la categoría --</option>
+                                        @foreach (var c in categorias)
+                                        {
+                                            <option value="@c.IdCategoria">@c.Nombre</option>
+                                        }
                                     </select>
+                                    <ValidationMessage For="() => dto.IdCategoria" class="val-error" />
                                 </div>
                             </div>
 
@@ -145,15 +146,22 @@
 
     private FormNegocioDto dto = new();
     private List<MunicipioListadoDto> listaMunicipios = new();
+    private List<CategoriaDto> categorias = new(); 
     private bool cargando = true;
     private bool guardando = false;
     private string? mensajeError;
 
     protected override async Task OnInitializedAsync()
     {
+        // 1. Municipios para el desplegable de municipio
         var resMun = await MunicipioService.ListarAsync(1, 100);
+
         if (resMun?.Items != null) listaMunicipios = resMun.Items;
 
+        // 2. Categorías reales desde la API (solo las que aplican a negocios)  
+        categorias = await NegocioService.ListarCategoriasAsync();             
+
+        // 3. Datos del negocio que se va a editar
         var negocio = await NegocioService.ObtenerPorIdAsync(Id);
         if (negocio != null)
         {
@@ -185,7 +193,7 @@
         if (exito)
         {
             var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-            if (auth.User.IsInRole("AdminGeneral") || auth.User.IsInRole("AdminPrincipal"))
+            if (auth.User.IsInRole(Roles.AdminGeneral))
                 Nav.NavigateTo("/admin/dashboard");
             else
                 Nav.NavigateTo("/comercio/dashboard");
@@ -200,7 +208,7 @@
     private async Task Cancelar()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (auth.User.IsInRole("AdminGeneral") || auth.User.IsInRole("AdminPrincipal"))
+        if (auth.User.IsInRole(Roles.AdminGeneral))
             Nav.NavigateTo("/admin/dashboard");
         else
             Nav.NavigateTo("/comercio/dashboard");

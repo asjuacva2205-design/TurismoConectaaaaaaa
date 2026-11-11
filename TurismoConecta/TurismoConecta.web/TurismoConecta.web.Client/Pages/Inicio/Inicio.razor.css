@@ -10,7 +10,7 @@ h1, h2 {
 .inicio-page {
     min-height: 100vh;
     background: #FBF8F1;
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 /* ---------- NAVBAR ---------- */
@@ -983,6 +983,55 @@ h1, h2 {
     margin: 0;
 }
 
+a.valor-card,
+.valor-card-pronto {
+    display: block;
+    padding: 1.5rem 1rem;
+    border-radius: 16px;
+    color: inherit;
+    text-decoration: none;
+    transition: transform .25s ease, background .25s ease, box-shadow .25s ease;
+}
+
+    a.valor-card:hover {
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(22, 48, 28, .08);
+    }
+
+.valor-enlace {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: .9rem;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #bc3e29;
+}
+
+    .valor-enlace i {
+        transition: transform .2s ease;
+    }
+
+a.valor-card:hover .valor-enlace i {
+    transform: translateX(3px);
+}
+
+.valor-card-pronto {
+    opacity: .7;
+}
+
+.valor-pronto {
+    display: inline-block;
+    margin-top: .9rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #EFE9DA;
+    color: #6b6450;
+    font-size: .7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
 .franja-movil-contenedor {
     overflow: hidden;
     width: 100%;
@@ -1143,3 +1192,371 @@ h1, h2 {
         margin: 0 1.5rem 3rem;
     }
 }
+
+/* ---------- SITIOS TURÍSTICOS DINÁMICOS ---------- */
+
+/* Fila de tarjetas "fantasma" mientras cargan los sitios */
+.destinos-skeleton-fila {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding: 28px 16px;
+}
+
+.destino-skeleton {
+    width: clamp(265px, 24vw, 340px);
+    height: 400px;
+    border: 1px solid #dfe2d8;
+    background: #eeece4;
+    animation: pulso-carga 1.3s ease-in-out infinite;
+}
+
+/* Mensaje cuando no hay sitios (la sección tiene fondo claro) */
+.estado-vacio-claro {
+    text-align: center;
+    color: #555e52;
+    font-size: 0.95rem;
+    padding: 48px 16px;
+    margin: 0;
+}
+
+/* Íconos Phosphor dentro de los botones de filtro y del badge */
+.filtro-maravilla-btn i,
+.destino-badge-categoria i {
+    margin-right: 4px;
+    vertical-align: -1px;
+}
+
+
+/* ---------- CARDS: HOVER, DETALLE Y ENLACE AL PUEBLO ---------- */
+.destino-frame:hover .destino-image {
+    transform: scale(1.12);
+}
+
+.destino-link:focus-visible {
+    outline: 3px solid #bc3e29;
+    outline-offset: 4px;
+}
+
+.destino-ver-detalle {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(20, 32, 27, 0.45);
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.destino-frame:hover .destino-ver-detalle {
+    opacity: 1;
+}
+
+a.destino-cta {
+    color: inherit;
+    text-decoration: none;
+}
+
+    a.destino-cta:hover {
+        color: #bc3e29;
+    }
+
+/* ---------- MODAL: DETALLE DEL SITIO ---------- */
+.sitio-modal-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(15, 22, 19, 0.7);
+    backdrop-filter: blur(3px);
+    animation: aparecer-suave 0.25s ease both;
+}
+
+.sitio-modal {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: min(760px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: #fbfaf5;
+    border: 1px solid #aeb4a7;
+    box-shadow: 10px 10px 0 #213b31;
+}
+
+.sitio-modal-imagen {
+    position: relative;
+    min-height: 320px;
+}
+
+    .sitio-modal-imagen img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+.sitio-modal-cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 28px 26px;
+    color: #20251f;
+}
+
+    .sitio-modal-cuerpo h2 {
+        margin: 0;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.9rem;
+        line-height: 1.1;
+    }
+
+.sitio-modal-ubicacion {
+    margin: 0;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    color: #555e52;
+}
+
+.sitio-modal-datos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+    .sitio-modal-datos li {
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: #eef1ea;
+        color: #2e4d3c;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+.sitio-modal-descripcion {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #3a4238;
+}
+
+.sitio-modal-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 8px;
+}
+
+.sitio-btn-primario,
+.sitio-btn-secundario {
+    padding: 10px 16px;
+    border-radius: 999px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.sitio-btn-primario {
+    background: #213b31;
+    color: #fff;
+    border: 1px solid #213b31;
+}
+
+    .sitio-btn-primario:hover {
+        background: #bc3e29;
+        border-color: #bc3e29;
+    }
+
+.sitio-btn-secundario {
+    background: transparent;
+    color: #213b31;
+    border: 1px solid #213b31;
+}
+
+    .sitio-btn-secundario:hover {
+        background: #213b31;
+        color: #fff;
+    }
+
+.sitio-modal-cerrar {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 3;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #213b31;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+    .sitio-modal-cerrar:hover {
+        background: #bc3e29;
+        color: #fff;
+    }
+
+@media (max-width: 700px) {
+    .sitio-modal {
+        grid-template-columns: 1fr;
+    }
+
+    .sitio-modal-imagen {
+        min-height: 200px;
+    }
+}
+
+/* ---------- BUSCADOR CON SUGERENCIAS ---------- */
+.hero-buscador-zona {
+    position: relative;
+    max-width: 460px;
+}
+
+.hero-buscador .hero-buscador-limpiar {
+    padding: 0 6px;
+    background: transparent;
+    color: #7a705c;
+    font-size: 0.95rem;
+    box-shadow: none;
+}
+
+    .hero-buscador .hero-buscador-limpiar:hover {
+        background: transparent;
+        color: #bc3e29;
+        transform: none;
+    }
+
+.sugerencias-lista {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: #F7F1E3;
+    border-radius: 18px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.sugerencia-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    color: #20251f;
+    cursor: pointer;
+}
+
+    .sugerencia-item:hover,
+    .sugerencia-item.activa {
+        background: #e9dfc8;
+    }
+
+.sugerencia-icono {
+    display: grid;
+    place-items: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #213b31;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.sugerencia-textos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+    .sugerencia-textos strong {
+        overflow: hidden;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+    }
+
+    .sugerencia-textos small {
+        font-size: 0.75rem;
+        color: #6b6450;
+    }
+
+
+/* ---------- BOTÓN "IR A <MUNICIPIO>" EN EL MENSAJE DEL BUSCADOR ---------- */
+.mensaje-busqueda {
+    flex-wrap: wrap;
+}
+
+.mensaje-busqueda-ir {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    padding: 6px 14px;
+    border: 1.5px solid #000;
+    border-radius: 999px;
+    background: #fff;
+    color: #000;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+    .mensaje-busqueda-ir:hover {
+        background: #F2E6C9;
+        transform: translateX(2px);
+    }
+
+
+
+
+/* Filtros dentro del rail inmersivo (fondo oscuro) */
+.rail-filtros .filtro-maravilla-btn {
+    background: rgba(255, 255, 255, .08);
+    border-color: rgba(255, 255, 255, .25);
+    color: #F3EEE2;
+}
+
+    .rail-filtros .filtro-maravilla-btn:hover {
+        background: rgba(255, 255, 255, .16);
+        border-color: #E0A44A;
+    }
+
+    .rail-filtros .filtro-maravilla-btn.activo {
+        background: #E0A44A;
+        border-color: #E0A44A;
+        color: #16301C;
+        box-shadow: none;
+    }

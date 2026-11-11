@@ -1,0 +1,773 @@
+/* ==========================================================
+   GESTIÓN DE SITIOS TURÍSTICOS — Panel municipal
+   
+   ========================================================== */
+
+.gs-page {
+    min-height: 100vh;
+    background: #f0f5f8;
+    color: #1a2636;
+    font-family: 'Montserrat', sans-serif;
+    padding-bottom: 4rem;
+}
+
+/* ── Barra superior ── */
+.gs-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #0d1f35;
+    padding: 0 1.5rem;
+}
+
+.gs-topbar-inner {
+    max-width: 1280px;
+    height: 56px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.gs-enlace-topbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #dbe6f0;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+    .gs-enlace-topbar:hover {
+        color: #fff;
+    }
+
+/* ── Contenedor ── */
+.gs-main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2.25rem 1.5rem;
+}
+
+/* ── Encabezado ── */
+.gs-encabezado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.gs-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #2d6a4f;
+}
+
+.gs-encabezado h1 {
+    margin: 0.25rem 0;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 2.4rem;
+    color: #0d1f35;
+}
+
+.gs-bajada {
+    margin: 0;
+    color: #5b6b7c;
+    font-size: 0.92rem;
+}
+
+/* ── Botones ── */
+.gs-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0.7rem 1.2rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+}
+
+    .gs-btn:disabled,
+    .gs-btn.deshabilitado {
+        opacity: 0.55;
+        cursor: not-allowed;
+    }
+
+.gs-btn-primario {
+    background: #1e3a5f;
+    color: #fff;
+}
+
+    .gs-btn-primario:hover:not(:disabled) {
+        background: #2d6a4f;
+    }
+
+.gs-btn-secundario {
+    background: #fff;
+    color: #1e3a5f;
+    border-color: #c9d6e2;
+}
+
+    .gs-btn-secundario:hover:not(.deshabilitado) {
+        border-color: #1e3a5f;
+    }
+
+.gs-btn-texto {
+    background: transparent;
+    color: #1e3a5f;
+    padding: 0.5rem 0.7rem;
+}
+
+    .gs-btn-texto:hover:not(:disabled) {
+        background: #eef3f7;
+    }
+
+    .gs-btn-texto.peligro {
+        color: #b42318;
+    }
+
+        .gs-btn-texto.peligro:hover:not(:disabled) {
+            background: #fdecea;
+        }
+
+.gs-btn-peligro {
+    background: #b42318;
+    color: #fff;
+}
+
+    .gs-btn-peligro:hover {
+        background: #8f1c13;
+    }
+
+.gs-icono-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    font-size: 1.05rem;
+    cursor: pointer;
+}
+
+    .gs-icono-btn:hover:not(:disabled) {
+        background: rgba(0, 0, 0, 0.06);
+    }
+
+/* ── Aviso ── */
+.gs-aviso {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 1.25rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    animation: gs-aparecer 0.25s ease both;
+}
+
+    .gs-aviso span {
+        flex: 1;
+    }
+
+    .gs-aviso.ok {
+        background: #e7f5ee;
+        color: #1d5a3c;
+    }
+
+    .gs-aviso.error {
+        background: #fdecea;
+        color: #8f1c13;
+    }
+
+/* ── Estados (cargando / vacío / error) ── */
+.gs-estado {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 4rem 1rem;
+    background: #fff;
+    border-radius: 14px;
+    color: #5b6b7c;
+    text-align: center;
+}
+
+    .gs-estado > i {
+        font-size: 2.4rem;
+        color: #1e3a5f;
+    }
+
+    .gs-estado p {
+        margin: 0;
+        max-width: 420px;
+    }
+
+/* ── Resumen ── */
+.gs-resumen {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+    .gs-resumen div {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem 1.2rem;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+    }
+
+    .gs-resumen strong {
+        font-size: 1.6rem;
+        color: #0d1f35;
+    }
+
+    .gs-resumen span {
+        font-size: 0.78rem;
+        color: #5b6b7c;
+    }
+
+/* ── Filtros ── */
+.gs-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.gs-buscar {
+    position: relative;
+    flex: 1 1 260px;
+}
+
+    .gs-buscar i {
+        position: absolute;
+        top: 50%;
+        left: 12px;
+        transform: translateY(-50%);
+        color: #5b6b7c;
+    }
+
+    .gs-buscar input,
+    .gs-filtros select {
+        width: 100%;
+        height: 42px;
+        padding: 0 12px;
+        border: 1px solid #c9d6e2;
+        border-radius: 10px;
+        background: #fff;
+        font-family: inherit;
+        font-size: 0.88rem;
+        color: #1a2636;
+    }
+
+    .gs-buscar input {
+        padding-left: 36px;
+    }
+
+.gs-filtros select {
+    width: auto;
+    min-width: 190px;
+}
+
+/* ── Rejilla de tarjetas ── */
+.gs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+
+.gs-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .gs-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.1);
+    }
+
+    .gs-card.oculto .gs-card-imagen img {
+        filter: grayscale(1);
+        opacity: 0.6;
+    }
+
+.gs-card-imagen {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: #dde6ee;
+}
+
+    .gs-card-imagen img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+.gs-badge-estado {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+    .gs-badge-estado.publicado {
+        background: #e7f5ee;
+        color: #1d5a3c;
+    }
+
+    .gs-badge-estado.oculto {
+        background: #2b2f36;
+        color: #fff;
+    }
+
+.gs-btn-destacar {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #5b6b7c;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, color 0.15s ease;
+}
+
+    .gs-btn-destacar:hover:not(:disabled) {
+        transform: scale(1.1);
+    }
+
+    .gs-btn-destacar.activo {
+        color: #d49a1a;
+    }
+
+    .gs-btn-destacar:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+.gs-card-cuerpo {
+    flex: 1;
+    padding: 1rem 1.1rem 0.5rem;
+}
+
+    .gs-card-cuerpo h3 {
+        margin: 0 0 0.4rem;
+        font-size: 1.02rem;
+        color: #0d1f35;
+    }
+
+.gs-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin: 0 0 0.6rem;
+    font-size: 0.75rem;
+    color: #5b6b7c;
+}
+
+    .gs-card-meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+.gs-card-desc {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: #445566;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.gs-card-acciones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 0.5rem 0.7rem 0.8rem;
+    border-top: 1px solid #eef2f6;
+}
+
+/* ── Modales ── */
+.gs-modal-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(13, 31, 53, 0.6);
+    backdrop-filter: blur(2px);
+    animation: gs-aparecer 0.2s ease both;
+}
+
+.gs-modal {
+    width: min(920px, 100%);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.25);
+}
+
+.gs-modal-pequeno {
+    width: min(460px, 100%);
+    padding: 1.5rem;
+}
+
+    .gs-modal-pequeno h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.15rem;
+    }
+
+    .gs-modal-pequeno p {
+        margin: 0;
+        color: #445566;
+        font-size: 0.9rem;
+        line-height: 1.5;
+    }
+
+.gs-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid #eef2f6;
+}
+
+    .gs-modal-header h2 {
+        margin: 0;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.6rem;
+        color: #0d1f35;
+    }
+
+.gs-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    padding-top: 1.25rem;
+}
+
+/* ── Formulario ── */
+.gs-form {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.gs-form-grid {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+}
+
+.gs-form-imagen,
+.gs-form-datos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.gs-form-imagen {
+    gap: 0.6rem;
+}
+
+.gs-label,
+.gs-campo label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #1a2636;
+}
+
+.gs-preview {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 12px;
+    background: #eef3f7;
+    border: 1px dashed #c9d6e2;
+}
+
+    .gs-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+.gs-preview-vacio {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #7a8a9a;
+    font-size: 0.8rem;
+}
+
+    .gs-preview-vacio i {
+        font-size: 2.2rem;
+    }
+
+.gs-preview-quitar {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    color: #b42318;
+    cursor: pointer;
+}
+
+.gs-preview-cargando {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.gs-btn-subir {
+    position: relative;
+    overflow: hidden;
+}
+
+.gs-input-oculto {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.gs-ayuda,
+.gs-contador {
+    font-size: 0.72rem;
+    color: #7a8a9a;
+}
+
+.gs-contador {
+    text-align: right;
+}
+
+.gs-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gs-campo-doble {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem;
+}
+
+.gs-campo ::deep input,
+.gs-campo ::deep select,
+.gs-campo textarea {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #c9d6e2;
+    border-radius: 10px;
+    background: #fff;
+    font-family: inherit;
+    font-size: 0.88rem;
+    color: #1a2636;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .gs-campo ::deep input:focus,
+    .gs-campo ::deep select:focus,
+    .gs-campo textarea:focus {
+        outline: none;
+        border-color: #1e3a5f;
+        box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.12);
+    }
+
+.gs-campo textarea {
+    resize: vertical;
+    min-height: 110px;
+}
+
+.gs-campo ::deep .validation-message {
+    font-size: 0.75rem;
+    color: #b42318;
+}
+
+.gs-campo ::deep input.invalid,
+.gs-campo ::deep select.invalid {
+    border-color: #b42318;
+}
+
+.gs-solo-lectura {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 42px;
+    margin: 0;
+    padding: 0 0.75rem;
+    border-radius: 10px;
+    background: #eef3f7;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.gs-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 0.8rem;
+    border-radius: 10px;
+    background: #f6f9fb;
+    cursor: pointer;
+}
+
+    .gs-check ::deep input {
+        width: 18px;
+        height: 18px;
+        margin-top: 2px;
+        accent-color: #1e3a5f;
+    }
+
+    .gs-check span {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        font-size: 0.85rem;
+    }
+
+    .gs-check small {
+        color: #5b6b7c;
+        font-size: 0.75rem;
+    }
+
+.gs-error {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #b42318;
+}
+
+.gs-error-general {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1rem;
+    padding: 0.7rem 0.9rem;
+    border-radius: 10px;
+    background: #fdecea;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* ── Spinner ── */
+.gs-spinner {
+    width: 34px;
+    height: 34px;
+    border: 3px solid #c9d6e2;
+    border-top-color: #1e3a5f;
+    border-radius: 50%;
+    animation: gs-girar 0.8s linear infinite;
+}
+
+    .gs-spinner.pequeno {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+        border-color: rgba(255, 255, 255, 0.4);
+        border-top-color: #fff;
+    }
+
+@keyframes gs-girar {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes gs-aparecer {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+/* ── Sin acceso ── */
+.gs-sin-acceso {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    background: #f0f5f8;
+    font-family: 'Montserrat', sans-serif;
+    text-align: center;
+}
+
+    .gs-sin-acceso i {
+        font-size: 2.6rem;
+        color: #1e3a5f;
+    }
+
+/* ── Responsive ── */
+@media (max-width: 760px) {
+    .gs-form-grid,
+    .gs-campo-doble {
+        grid-template-columns: 1fr;
+    }
+
+    .gs-resumen {
+        grid-template-columns: 1fr;
+    }
+
+    .gs-encabezado h1 {
+        font-size: 1.9rem;
+    }
+}

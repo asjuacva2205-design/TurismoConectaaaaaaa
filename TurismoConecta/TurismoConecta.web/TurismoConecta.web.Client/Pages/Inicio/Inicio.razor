@@ -1,16 +1,16 @@
 @page "/"
+@implements IAsyncDisposable
 
-@using System.Linq
-@using Microsoft.AspNetCore.Components.Web
-@using Microsoft.AspNetCore.Components.Authorization
-@using Microsoft.JSInterop
-@using TurismoConecta.web.Client.Services
+@using System.Globalization
+@using System.Text
 
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
 @inject SitioTuristicoApiService SitioService
 @inject MunicipioApiService ApiService
 @inject EtiquetaApiService EtiquetaService
+@inject ApiConfig Api
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject AuthenticationStateProvider AuthStateProvider
@@ -19,11 +19,9 @@
 
 <HeadContent>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin ="anonymous" />
-    <link rel="stylesheet" href="Pages/inicio.razor.css" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  </HeadContent>
-    
+</HeadContent>
 
 <div class="inicio-page">
 
@@ -40,48 +38,34 @@
             <a href="#recomendaciones">Recomendaciones</a>
         </nav>
 
+        @* ◆ CAMBIO 1 (ya lo tenías aplicado): íconos de la barra superior *@
         <div class="inicio-actions">
             <button type="button"
                     class="nav-button"
                     aria-label="Buscar"
+                    title="Buscar"
                     @onclick="MostrarBuscador">
-                <span>🔎</span>
+                <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
             </button>
 
             <AuthorizeView>
                 <Authorized>
-                    <button type="button"
-                            class="nav-button nav-power"
-                            aria-label="Mi Panel"
-                            @onclick="IrAlDashboard"
-                            title="Ir a mi panel">
-                        <span>👤</span>
+                    <button type="button" class="nav-button" aria-label="Mi panel" title="Ir a mi panel" @onclick="IrAlDashboard">
+                        <i class="ph ph-squares-four" aria-hidden="true"></i>
                     </button>
-                    <a href="/perfil"
-                       class="nav-button"
-                       aria-label="Mi cuenta"
-                       title="Mi cuenta">
-                        <span>🔓</span>
+                    <a href="/perfil" class="nav-button" aria-label="Mi cuenta" title="Mi cuenta">
+                        <i class="ph ph-user-circle" aria-hidden="true"></i>
                     </a>
-                    <button type="button"
-                            class="nav-button"
-                            style="color: #ff9b9b; border-color: rgba(220, 53, 69, 0.4);"
-                            aria-label="Cerrar sesión"
-                            @onclick="CerrarSesion"
-                            title="Cerrar sesión">
-                        <span style="font-size: 0.8rem;">✕</span>
+                    <button type="button" class="nav-button" aria-label="Cerrar sesión" title="Cerrar sesión" @onclick="CerrarSesion">
+                        <i class="ph ph-sign-out" aria-hidden="true"></i>
                     </button>
                 </Authorized>
                 <NotAuthorized>
-                    <a href="/login"
-                       class="nav-button"
-                       aria-label="Iniciar sesión">
-                        <span>👤</span>
+                    <a href="/login" class="nav-button" aria-label="Iniciar sesión" title="Iniciar sesión">
+                        <i class="ph ph-user" aria-hidden="true"></i>
                     </a>
-                    <a href="/register"
-                       class="nav-button nav-power"
-                       aria-label="Registrarse">
-                        <span>🔓</span>
+                    <a href="/register" class="nav-button" aria-label="Registrarse" title="Registrarse">
+                        <i class="ph ph-user-plus" aria-hidden="true"></i>
                     </a>
                 </NotAuthorized>
             </AuthorizeView>
@@ -93,11 +77,13 @@
         <div class="buscador-navegacion">
             <input @bind="textoBusqueda"
                    @bind:event="oninput"
+                   @bind:after="ActualizarSugerencias"
                    @onkeyup="DetectarEnterBusqueda"
-                   placeholder="Busca un municipio, destino o experiencia..."
+                   placeholder="Busca un municipio o un sitio turístico..."
+                   autocomplete="off"
                    autofocus />
 
-            <button type="button" @onclick="Buscar">
+            <button type="button" @onclick="() => BuscarAsync(desplazar: true)">
                 Explorar
             </button>
         </div>
@@ -125,20 +111,84 @@
                     sabores tradicionales y experiencias auténticas.
                 </p>
 
-                <form class="hero-buscador"
-                      @onsubmit="Buscar"
-                      @onsubmit:preventDefault>
+                @* ── Buscador con sugerencias tipo "Maps" ── *@
+                <div class="hero-buscador-zona">
+                    <form class="hero-buscador"
+                          @onsubmit="() => BuscarAsync(desplazar: false)"
+                          @onsubmit:preventDefault>
 
-                    <span class="hero-buscador-icono">⌕</span>
+                        @* ◆ CAMBIO 2: lupa del buscador (antes ⌕) *@
+                        <span class="hero-buscador-icono">
+                            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                        </span>
 
-                    <input @bind="textoBusqueda"
-                           @bind:event="oninput"
-                           placeholder="¿Qué pueblo quieres conocer?" />
+                        <input @bind="textoBusqueda"
+                               @bind:event="oninput"
+                               @bind:after="ActualizarSugerencias"
+                               @onkeydown="TeclaEnBuscador"
+                               @onfocus="() => mostrarSugerencias = sugerencias.Count > 0"
+                               @onblur="() => mostrarSugerencias = false"
+                               placeholder="Busca un pueblo o un sitio: Ráquira, catedral…"
+                               aria-label="Buscar municipio o sitio turístico"
+                               autocomplete="off" />
 
-                    <button type="submit">
-                        Buscar
-                    </button>
-                </form>
+                        @if (!string.IsNullOrEmpty(textoBusqueda))
+                        {
+                            @*  *@
+                            <button type="button"
+                                    class="hero-buscador-limpiar"
+                                    aria-label="Limpiar búsqueda"
+                                    @onclick="LimpiarBusqueda">
+                                <i class="ph ph-x" aria-hidden="true"></i>
+                            </button>
+                        }
+
+                        <button type="submit">
+                            Buscar
+                        </button>
+                    </form>
+
+                    @if (mostrarSugerencias && sugerencias.Count > 0)
+                    {
+                        <ul class="sugerencias-lista" role="listbox" aria-label="Sugerencias">
+                            @for (var i = 0; i < sugerencias.Count; i++)
+                            {
+                                var sugerencia = sugerencias[i];
+                                var indice = i;
+
+                                <li role="option"
+                                    aria-selected="@(indice == sugerenciaActiva)"
+                                    class="sugerencia-item @(indice == sugerenciaActiva ? "activa" : "")"
+                                    @onmousedown="() => SeleccionarResultado(sugerencia, desplazar: false)"
+                                    @onmousedown:preventDefault>
+                                    <span class="sugerencia-icono">
+                                        <i class="@sugerencia.Icono" aria-hidden="true"></i>
+                                    </span>
+                                    <span class="sugerencia-textos">
+                                        <strong>@sugerencia.Titulo</strong>
+                                        <small>@sugerencia.Subtitulo</small>
+                                    </span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+
+                @if (!string.IsNullOrEmpty(mensajeBusqueda))
+                {
+                    <p class="mensaje-busqueda" role="status">
+                        <i class="ph-fill ph-map-pin" aria-hidden="true"></i>
+                        <span>@mensajeBusqueda</span>
+
+                        @if (municipioEncontrado is not null)
+                        {
+                            <a href="@UrlMunicipio(municipioEncontrado.IdMunicipio)" class="mensaje-busqueda-ir">
+                                Ir a @municipioEncontrado.Nombre
+                                <i class="ph ph-arrow-right" aria-hidden="true"></i>
+                            </a>
+                        }
+                    </p>
+                }
 
                 <div class="hero-enlaces">
                     <a href="#donde-ir">Explorar destinos</a>
@@ -213,76 +263,56 @@
             </article>
         </section>
 
-        
-            
-        <section class="destinos-page" id="donde-ir">
-            <div class="destinos-heading">
-                <span class="eyebrow">MARAVILLAS DE BOYACÁ</span>
-                <h1>Tesoros Naturales, Lagos y Monumentos</h1>
-                <p>Explora los lagos legendarios, cumbres nevadas, páramos mágicos, monumentos históricos y pueblos coloniales de nuestra tierra.</p>
+       
 
-                <!-- Filtro dinámico de categorías -->
-                <div class="destinos-filtros-bar">
-                    @foreach (var cat in categoriasMaravillas)
-                    {
-                        <button type="button"
-                                class="filtro-maravilla-btn @(categoriaSeleccionada == cat ? "activo" : "")"
-                                @onclick="() => SeleccionarCategoriaMaravilla(cat)">
-                            @cat
-                        </button>
-                    }
-                </div>
-            </div>
-
-            <div class="destinos-marquee" aria-label="Maravillas y atractivos de Boyacá">
-                <div class="destinos-track @(carruselPausado ? "pausado" : "")"
-                     @onmouseenter="() => carruselPausado = true"
-                     @onmouseleave="() => carruselPausado = false">
-                    @if (maravillasParaMostrar.Count > 0)
-                    {
-                        @for (int i = 0; i < maravillasParaMostrar.Count; i++)
+            @* ═══════════════ MARAVILLAS DE BOYACÁ: rail inmersivo ═══════════════ *@
+            @if (cargandoSitios)
+            {
+                <section class="destinos-page" id="donde-ir">
+                    <div class="destinos-skeleton-fila" aria-busy="true">
+                        @for (var i = 0; i < 4; i++)
                         {
-                            var item = maravillasParaMostrar[i];
-                            <article class="destino-frame">
-                                <a href="@($"/municipios/{(item.IdMunicipio > 0 ? item.IdMunicipio : 1)}")" class="destino-link" aria-label="Explorar @item.Nombre">
-                                    <div class="destino-image-wrap">
-                                        <img src="@item.ImagenUrl" alt="@item.Nombre" class="destino-image" loading="lazy" />
-                                        <span class="destino-badge-categoria">@item.BadgeIcono @item.Categoria</span>
-                                        <span class="destino-clima-tag">🌡️ @item.Clima</span>
-                                        <span class="destino-number">@(((i % (maravillasFiltradas.Count > 0 ? maravillasFiltradas.Count : 1)) + 1).ToString("00"))</span>
-                                    </div>
-                                    <div class="destino-content">
-                                        <div class="destino-topline">
-                                            <h2>@item.Nombre</h2>
-                                            <span class="destino-rating">★ @item.Calificacion.ToString("0.0")</span>
-                                        </div>
-                                        <span class="destino-category">📍 @item.Municipio • @item.Altitud</span>
-                                        <p class="destino-descripcion">@item.Descripcion</p>
-                                        <span class="destino-cta">Conocer destino <span aria-hidden="true">→</span></span>
-                                    </div>
-                                </a>
-                            </article>
+                            <div class="destino-skeleton"></div>
                         }
-                    }
-                </div>
-            </div>
-
-            <div class="destinos-footer">
-                <div class="controles-maravillas">
-                    <button type="button" class="btn-control-maravilla" @onclick="() => carruselPausado = !carruselPausado" title="@(carruselPausado ? "Reanudar rotación" : "Pausar rotación")">
-                        @(carruselPausado ? "▶ Reanudar rotación" : "⏸ Pausar rotación")
-                    </button>
-                </div>
-                <p>Desliza o haz clic para explorar los destinos más asombrosos del departamento</p>
-            </div>
-        </section>
+                    </div>
+                </section>
+            }
+            else
+            {
+                <RailMaravillas Items="sitiosRail" Imagen="ImagenSitio" OnVerDetalle="AbrirDetalleSitio"
+                            Pausado="sitioSeleccionado is not null">
+                    <Filtros>
+                        @if (categoriasSitio.Count > 0)
+                        {
+                            <div class="destinos-filtros-bar rail-filtros" role="group" aria-label="Filtrar por categoría">
+                                <button type="button"
+                                        class="filtro-maravilla-btn @(categoriaSeleccionada is null ? "activo" : "")"
+                                        @onclick="() => SeleccionarCategoria(null)">
+                                    Todos
+                                </button>
+                                @foreach (var cat in categoriasSitio)
+                                {
+                                    <button type="button"
+                                            class="filtro-maravilla-btn @(categoriaSeleccionada == cat.IdCategoria ? "activo" : "")"
+                                            @onclick="() => SeleccionarCategoria(cat.IdCategoria)">
+                                        @if (!string.IsNullOrWhiteSpace(cat.Icono))
+                                        {
+                                            <i class="@cat.Icono" aria-hidden="true"></i>
+                                        }
+                                        @cat.Nombre
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </Filtros>
+                </RailMaravillas>
+            }
 
         <div class="centrar-boton">
             <a href="/municipios" class="boton-principal">
                 Ver todos los municipios y atractivos
             </a>
         </div>
-        
 
         <section class="gustos-section" id="gustos">
             <div class="section-heading gustos-heading">
@@ -326,15 +356,28 @@
                                 class="gusto-card"
                                 @onclick="() => FiltrarPorEtiqueta(etiqueta.IdEtiqueta)">
 
-                            <span class="gusto-icono">
-                                @(string.IsNullOrWhiteSpace(etiqueta.Icono)
-                                    ? "✦"
-                                    : etiqueta.Icono)
+                            @* ◆ CAMBIO 9: ícono de la etiqueta en negro (Phosphor o emoji en silueta) *@
+                            <span class="gusto-icono" aria-hidden="true">
+                                @if (EsClasePhosphor(etiqueta.Icono))
+                                {
+                                    <i class="@etiqueta.Icono"></i>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(etiqueta.Icono))
+                                {
+                                    <span class="icono-silueta">@etiqueta.Icono</span>
+                                }
+                                else
+                                {
+                                    <i class="ph ph-sparkle"></i>
+                                }
                             </span>
 
                             <strong>@etiqueta.Nombre</strong>
 
-                            <span class="gusto-flecha">↗</span>
+                            @* ◆ CAMBIO 10: flecha (antes ↗) *@
+                            <span class="gusto-flecha" aria-hidden="true">
+                                <i class="ph ph-arrow-up-right"></i>
+                            </span>
                         </button>
                     }
                 </div>
@@ -424,36 +467,50 @@
         </section>
     </main>
 
-<section class="valores-section">
-    <div class="valores-grid">
-        <div class="valor-card">
-            <span class="valor-icono">🗺️</span>
-            <h3>Catálogo completo</h3>
-            <p>Información verificada de los municipios: historia, clima, fechas y actividades.</p>
+    @* *@
+    <section class="valores-section">
+        <div class="valores-grid">
+            <a href="/municipios" class="valor-card">
+                <span class="valor-icono"><i class="ph ph-map-trifold" aria-hidden="true"></i></span>
+                <h3>Catálogo completo</h3>
+                <p>@(totalMunicipios ?? 0) municipios con su historia, clima, fiestas y actividades.</p>
+                <span class="valor-enlace">Ver catálogo <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a href="/itinerarios/crear" class="valor-card">
+                <span class="valor-icono"><i class="ph ph-compass" aria-hidden="true"></i></span>
+                <h3>Itinerarios a tu medida</h3>
+                <p>Arma tu recorrido entre varios pueblos y compártelo con quien quieras viajar contigo.</p>
+                <span class="valor-enlace">Crear itinerario <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a href="/municipios" class="valor-card">
+                <span class="valor-icono"><i class="ph ph-buildings" aria-hidden="true"></i></span>
+                <h3>Negocios verificados</h3>
+                <p>Hoteles, restaurantes y artesanos aprobados por cada municipio. Los encuentras en su ficha.</p>
+                <span class="valor-enlace">Elegir un destino <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
+            <a href="/municipios" class="valor-card">
+                <span class="valor-icono"><i class="ph ph-star" aria-hidden="true"></i></span>
+                <h3>Reseñas reales</h3>
+                <p>Opiniones de otros viajeros para que decidas con información de primera mano.</p>
+                <span class="valor-enlace">Leer opiniones <i class="ph ph-arrow-right" aria-hidden="true"></i></span>
+            </a>
         </div>
-        <div class="valor-card">
-            <span class="valor-icono">🧭</span>
-            <h3>Itinerarios a tu medida</h3>
-            <p>Arma tu recorrido entre varios pueblos y compártelo con quien quieras viajar contigo.</p>
-        </div>
-        <div class="valor-card">
-            <span class="valor-icono">🏨</span>
-            <h3>Negocios verificados</h3>
-            <p>Hoteles, restaurantes y artesanos aprobados por la administración de cada municipio.</p>
-        </div>
-        <div class="valor-card">
-            <span class="valor-icono">⭐</span>
-            <h3>Reseñas reales</h3>
-            <p>Opiniones de otros viajeros para que decidas con información de primera mano.</p>
-        </div>
-    </div>
-</section>
+    </section>
 
-<section class="cta-final">
-    <h2>Tu próximo viaje por Boyacá empieza aquí</h2>
-    <p>Crea tu cuenta gratis y guarda tus municipios y negocios favoritos.</p>
-    <a href="/usuarios/register" class="boton-principal">Crear cuenta gratis</a>
-</section>
+    <section class="cta-final">
+        <h2>Tu próximo viaje por Boyacá empieza aquí</h2>
+        <AuthorizeView>
+            <Authorized>
+                <p>Revisa los municipios y negocios que guardaste con ♥.</p>
+                <a href="/perfil" class="boton-principal">Ver mis favoritos</a>
+            </Authorized>
+            <NotAuthorized>
+                <p>Crea tu cuenta gratis y guarda tus municipios y negocios favoritos.</p>
+                <a href="/register" class="boton-principal">Crear cuenta gratis</a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </section>
+
     <footer class="inicio-footer">
         <div>
             <img src="images/turismo-conecta-logo.png"
@@ -472,210 +529,215 @@
         </div>
     </footer>
 
+    @* ═══════════════ MODAL: DETALLE DEL SITIO ═══════════════ *@
+    @if (sitioSeleccionado is not null)
+    {
+        <div class="sitio-modal-fondo" @onclick="CerrarDetalleSitio">
+            <div class="sitio-modal"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="sitio-modal-titulo"
+                 @onclick:stopPropagation
+                 @onkeydown="TeclaEnModal">
+
+                @* *@
+                <button type="button"
+                        class="sitio-modal-cerrar"
+                        aria-label="Cerrar"
+                        @ref="botonCerrarModal"
+                        @onclick="CerrarDetalleSitio">
+                    <i class="ph ph-x" aria-hidden="true"></i>
+                </button>
+
+                <div class="sitio-modal-imagen">
+                    <img src="@ImagenSitio(sitioSeleccionado.ImagenUrl)" alt="@sitioSeleccionado.Nombre" />
+                    @if (!string.IsNullOrWhiteSpace(sitioSeleccionado.NombreCategoria))
+                    {
+                        <span class="destino-badge-categoria">
+                            @if (!string.IsNullOrWhiteSpace(sitioSeleccionado.IconoCategoria))
+                            {
+                                <i class="@sitioSeleccionado.IconoCategoria" aria-hidden="true"></i>
+                            }
+                            @sitioSeleccionado.NombreCategoria
+                        </span>
+                    }
+                </div>
+
+                <div class="sitio-modal-cuerpo">
+                    <h2 id="sitio-modal-titulo">@sitioSeleccionado.Nombre</h2>
+
+                    @*  *@
+                    <p class="sitio-modal-ubicacion">
+                        <i class="ph-fill ph-map-pin" aria-hidden="true"></i> @sitioSeleccionado.NombreMunicipio, Boyacá
+                    </p>
+
+                    <ul class="sitio-modal-datos">
+                        @if (sitioSeleccionado.Altitud.HasValue)
+                        {
+                            <li><i class="ph ph-mountains" aria-hidden="true"></i> @sitioSeleccionado.Altitud.Value.ToString("N0") msnm</li>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(sitioSeleccionado.Clima))
+                        {
+                            <li><i class="ph ph-thermometer-simple" aria-hidden="true"></i> @sitioSeleccionado.Clima</li>
+                        }
+                        @if (sitioSeleccionado.Calificacion.HasValue)
+                        {
+                            <li><i class="ph-fill ph-star" aria-hidden="true"></i> @sitioSeleccionado.Calificacion.Value.ToString("0.0")</li>
+                        }
+                    </ul>
+
+                    @if (!string.IsNullOrWhiteSpace(sitioSeleccionado.Descripcion))
+                    {
+                        <p class="sitio-modal-descripcion">@sitioSeleccionado.Descripcion</p>
+                    }
+
+                    <div class="sitio-modal-acciones">
+                        <a href="@UrlMunicipio(sitioSeleccionado.IdMunicipio)" class="sitio-btn-primario">
+                            Conocer @sitioSeleccionado.NombreMunicipio →
+                        </a>
+                        @* *@
+                        <button type="button" class="sitio-btn-secundario" @onclick="VerSitioEnMapa">
+                            <i class="ph ph-map-trifold" aria-hidden="true"></i> Ver en el mapa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     <CondorChat />
 </div>
+
 @code {
-    private string textoBusqueda = "";
-    private string zonaMapa = "Colombia";
-    private bool carruselPausado = false;
+    // ════════════════════════════════════════════════
+    // 1. ESTADO GENERAL
+    // ════════════════════════════════════════════════
     private bool mostrarBuscador;
+    private string zonaMapa = "Colombia";
+    private bool mapaInicializado;
+    private DotNetObjectReference<Inicio>? referenciaDotNet;
+
     private bool cargandoMunicipios = true;
     private bool cargandoEtiquetas = true;
-    private bool mapaInicializado;
-    private string categoriaSeleccionada = "Todos";
-    private readonly List<string> categoriasMaravillas = new() { "Todos", "Lagos", "Montañas", "Monumentos", "Páramos", "Pueblos" };
-
-    public class MaravillaBoyaca
-    {
-        public string Nombre { get; set; } = "";
-        public string Municipio { get; set; } = "";
-        public string Categoria { get; set; } = "";
-        public string Clima { get; set; } = "";
-        public string Altitud { get; set; } = "";
-        public string ImagenUrl { get; set; } = "";
-        public string Descripcion { get; set; } = "";
-        public double Calificacion { get; set; } = 4.8;
-        public string BadgeIcono { get; set; } = "⭐";
-        public int IdMunicipio { get; set; } = 1;
-    }
-
-    private readonly List<MaravillaBoyaca> maravillasBoyaca = new()
-    {
-        new MaravillaBoyaca {
-            Nombre = "Laguna de Tota y Playa Blanca",
-            Municipio = "Aquitania / Cuítiva",
-            Categoria = "Lagos",
-            Clima = "12°C Frío",
-            Altitud = "3.015 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "El lago natural más grande de Colombia con arenas blancas naturales y aguas color esmeralda.",
-            Calificacion = 4.9,
-            BadgeIcono = "🌊",
-            IdMunicipio = 1
-        },
-        new MaravillaBoyaca {
-            Nombre = "Sierra Nevada del Cocuy",
-            Municipio = "El Cocuy / Güicán",
-            Categoria = "Montañas",
-            Clima = "-2°C a 8°C Páramo",
-            Altitud = "5.330 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "La mayor masa glaciar de Colombia con picos nevados imponentes como el Ritacuba Blanco.",
-            Calificacion = 5.0,
-            BadgeIcono = "🏔️",
-            IdMunicipio = 1
-        },
-        new MaravillaBoyaca {
-            Nombre = "Monumento Lanceros del Pantano de Vargas",
-            Municipio = "Paipa",
-            Categoria = "Monumentos",
-            Clima = "14°C Templado",
-            Altitud = "2.525 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "La escultura de bronce más colosal de Colombia rindiendo tributo a los 14 jinetes de la gesta libertadora.",
-            Calificacion = 4.9,
-            BadgeIcono = "⚔️",
-            IdMunicipio = 2
-        },
-        new MaravillaBoyaca {
-            Nombre = "Páramo de Ocetá",
-            Municipio = "Monguí",
-            Categoria = "Páramos",
-            Clima = "7°C Frío",
-            Altitud = "3.950 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1511497584788-87676104235f?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "Considerado uno de los páramos más bellos del planeta, con jardines de frailejones y laberintos rocosos.",
-            Calificacion = 4.95,
-            BadgeIcono = "🌿",
-            IdMunicipio = 3
-        },
-        new MaravillaBoyaca {
-            Nombre = "Monumento Histórico Puente de Boyacá",
-            Municipio = "Ventaquemada / Tunja",
-            Categoria = "Monumentos",
-            Clima = "13°C Frío",
-            Altitud = "2.700 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "Escenario patriota consagrado como patrimonio de la nación donde se selló la libertad de América.",
-            Calificacion = 4.8,
-            BadgeIcono = "🏛️",
-            IdMunicipio = 1
-        },
-        new MaravillaBoyaca {
-            Nombre = "Pozos Azules y Desierto de la Candelaria",
-            Municipio = "Villa de Leyva",
-            Categoria = "Lagos",
-            Clima = "18°C Agradable",
-            Altitud = "2.149 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "Espejos de agua azul turquesa en contraste con el paisaje desértico y viñedos boyacenses.",
-            Calificacion = 4.85,
-            BadgeIcono = "💧",
-            IdMunicipio = 4
-        },
-        new MaravillaBoyaca {
-            Nombre = "Santuario y Laguna Sagrada de Iguaque",
-            Municipio = "Chíquiza / Villa de Leyva",
-            Categoria = "Lagos",
-            Clima = "9°C Frío",
-            Altitud = "3.700 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "Cuna mística de la mitología Muisca donde emergió la diosa Bachué de las aguas sagradas.",
-            Calificacion = 4.9,
-            BadgeIcono = "✨",
-            IdMunicipio = 4
-        },
-        new MaravillaBoyaca {
-            Nombre = "Aguas Termales y Lago Sochagota",
-            Municipio = "Paipa",
-            Categoria = "Lagos",
-            Clima = "15°C Templado",
-            Altitud = "2.525 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "Aguas mineromedicinales de origen volcánico, deportes náuticos y hoteles de descanso.",
-            Calificacion = 4.85,
-            BadgeIcono = "♨️",
-            IdMunicipio = 2
-        },
-        new MaravillaBoyaca {
-            Nombre = "Villa de Leyva Colonial",
-            Municipio = "Villa de Leyva",
-            Categoria = "Pueblos",
-            Clima = "17°C Templado",
-            Altitud = "2.149 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "La plaza empedrada más grande de Colombia rodeada de arquitectura colonial perfectamente preservada.",
-            Calificacion = 4.95,
-            BadgeIcono = "🏡",
-            IdMunicipio = 4
-        },
-        new MaravillaBoyaca {
-            Nombre = "Ráquira: Capital Artesanal de América",
-            Municipio = "Ráquira",
-            Categoria = "Pueblos",
-            Clima = "16°C Templado",
-            Altitud = "2.150 msnm",
-            ImagenUrl = "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=800&q=80",
-            Descripcion = "Fascinantes fachadas multicolores y milenaria tradición de alfarería y artesanías en barro cocido.",
-            Calificacion = 4.8,
-            BadgeIcono = "🏺",
-            IdMunicipio = 5
-        }
-    };
-
-    private List<MaravillaBoyaca> maravillasFiltradas => categoriaSeleccionada == "Todos"
-        ? maravillasBoyaca
-        : maravillasBoyaca.Where(m => m.Categoria == categoriaSeleccionada).ToList();
-
-    private List<MaravillaBoyaca> maravillasParaMostrar => maravillasFiltradas.Count > 0
-        ? maravillasFiltradas.Concat(maravillasFiltradas).ToList()
-        : new();
-
-    private void SeleccionarCategoriaMaravilla(string categoria)
-    {
-        categoriaSeleccionada = categoria;
-    }
+    private bool cargandoSitios = true;
 
     private int? totalMunicipios;
-
     private List<MunicipioListadoDto> todosMunicipios = new();
-    private List<MunicipioListadoDto> municipiosMostrados = new();
     private List<EtiquetaDto> etiquetas = new();
+
+    // ════════════════════════════════════════════════
+    // 2. MARAVILLAS DE BOYACÁ
+    // ════════════════════════════════════════════════
     private List<SitioTuristicoDto> sitiosTuristicos = new();
+    private List<CategoriaDto> categoriasSitio = new();
+    private int? categoriaSeleccionada;
+    
+
+    private SitioTuristicoDto? sitioSeleccionado;
+    private ElementReference botonCerrarModal;
+    private bool enfocarBotonCerrar;
+
+    private List<SitioTuristicoDto> sitiosFiltrados =>
+        categoriaSeleccionada is null
+            ? sitiosTuristicos
+            : sitiosTuristicos.Where(s => s.IdCategoria == categoriaSeleccionada).ToList();
+
+    // Todas las cartas del rail, destacados primero (el rail solo dibuja las cercanas)
+    private List<SitioTuristicoDto> sitiosRail =>
+        sitiosFiltrados.OrderByDescending(s => s.Destacado).ToList();
+
+          
+
+    private void SeleccionarCategoria(int? idCategoria) => categoriaSeleccionada = idCategoria;
+
+    // ════════════════════════════════════════════════
+    // 3. BUSCADOR
+    // ════════════════════════════════════════════════
+    private const int MaxSugerencias = 6;
+
+    private string textoBusqueda = "";
     private string? mensajeBusqueda;
+    private List<ResultadoBusqueda> sugerencias = new();
+    private bool mostrarSugerencias;
+    private int sugerenciaActiva = -1;
+    private MunicipioListadoDto? municipioEncontrado;
 
-    // Redirige al dashboard según el rol del usuario autenticado
-    private async Task IrAlDashboard()
+    /// <summary>Un resultado del buscador: un municipio o un sitio (con su municipio).</summary>
+    private sealed record ResultadoBusqueda(
+        string Titulo,
+        string Subtitulo,
+        string Icono,
+        MunicipioListadoDto Municipio,
+        SitioTuristicoDto? Sitio);
+
+    // ════════════════════════════════════════════════
+    // 4. AYUDANTES DE PRESENTACIÓN
+    // ════════════════════════════════════════════════
+    private string ImagenSitio(string? imagenUrl) =>
+        string.IsNullOrWhiteSpace(imagenUrl)
+            ? ApiConfig.ImagenPorDefecto
+            : Api.Url(imagenUrl);
+
+   
+
+    // ◆ CAMBIO 15a: sin 📍 (el ícono ahora va en el HTML, CAMBIO 7)
+    private static string TextoUbicacion(SitioTuristicoDto sitio) =>
+        sitio.Altitud.HasValue
+            ? $"{sitio.NombreMunicipio} • {sitio.Altitud.Value:N0} msnm"
+            : sitio.NombreMunicipio;
+
+    private static string UrlMunicipio(int idMunicipio) => $"/municipios/{idMunicipio}?desde=inicio";
+
+    // ◆ CAMBIO 15b: nuevo ayudante para los íconos de las etiquetas (CAMBIO 9)
+    /// <summary>true si el ícono guardado es una clase de Phosphor ("ph ph-…", "ph-fill ph-…").</summary>
+    private static bool EsClasePhosphor(string? icono) =>
+        !string.IsNullOrWhiteSpace(icono) &&
+        icono.TrimStart().StartsWith("ph", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>"Ráquira " → "raquira": minúsculas, sin tildes y sin espacios en los extremos.</summary>
+    private static string Normalizar(string? texto)
     {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
+        if (string.IsNullOrWhiteSpace(texto)) return "";
 
-        if (!user.Identity?.IsAuthenticated ?? true)
+        var descompuesto = texto.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var resultado = new StringBuilder(descompuesto.Length);
+
+        foreach (var caracter in descompuesto)
         {
-            Nav.NavigateTo("/login");
-            return;
+            if (CharUnicodeInfo.GetUnicodeCategory(caracter) != UnicodeCategory.NonSpacingMark)
+                resultado.Append(caracter);
         }
 
-        var rol = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
-               ?? user.FindFirst("role")?.Value;
-
-        var destino = rol switch
-        {
-            "AdminGeneral"   => "/admin/dashboard",
-            "AdminPrincipal" => "/admin/dashboard",
-            "AdminMunicipio" => "/municipio/dashboard",
-            "AdminComercio"  => "/comercio/dashboard",
-            _                => "/perfil"
-        };
-
-        Nav.NavigateTo(destino);
+        return resultado.ToString();
     }
 
+    // ════════════════════════════════════════════════
+    // 5. CICLO DE VIDA
+    // ════════════════════════════════════════════════
     protected override async Task OnInitializedAsync()
     {
-        await CargarMunicipios();
-        await CargarEtiquetas();
-        await CargarSitiosTuristicos();
+        await Task.WhenAll(
+            CargarMunicipios(),
+            CargarEtiquetas(),
+            CargarSitiosTuristicos());
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            if (!cargandoMunicipios)
+                await InicializarMapaAsync();
+
+            await IrAAnclaSiHay();
+        }
+
+        if (enfocarBotonCerrar)
+        {
+            enfocarBotonCerrar = false;
+            try { await botonCerrarModal.FocusAsync(); }
+            catch (Exception ex) { Console.WriteLine($"[Inicio] No se pudo enfocar el modal: {ex.Message}"); }
+        }
     }
 
     private async Task CargarMunicipios()
@@ -683,15 +745,13 @@
         cargandoMunicipios = true;
         try
         {
-            var resultado = await ApiService.ListarAsync(1, 200);
-            todosMunicipios = resultado?.Items?.ToList() ?? new List<MunicipioListadoDto>();
-            municipiosMostrados = todosMunicipios;
-            totalMunicipios = resultado?.Total;
+            todosMunicipios = await ApiService.ListarParaMapaAsync();
+            totalMunicipios = todosMunicipios.Count;
         }
-        catch
+        catch (Exception ex)
         {
-            todosMunicipios = new List<MunicipioListadoDto>();
-            municipiosMostrados = new List<MunicipioListadoDto>();
+            Console.WriteLine($"[Inicio] Error cargando municipios: {ex.Message}");
+            todosMunicipios = new();
             totalMunicipios = 0;
         }
         finally
@@ -710,9 +770,10 @@
             var resultado = await EtiquetaService.ListarAsync();
             etiquetas = resultado?.ToList() ?? new List<EtiquetaDto>();
         }
-        catch
+        catch (Exception ex)
         {
-            etiquetas = new List<EtiquetaDto>();
+            Console.WriteLine($"[Inicio] Error cargando etiquetas: {ex.Message}");
+            etiquetas = new();
         }
         finally
         {
@@ -722,112 +783,294 @@
 
     private async Task CargarSitiosTuristicos()
     {
-        try { sitiosTuristicos = await SitioService.ListarAsync(); }
-        catch { sitiosTuristicos = new(); }
-    }
-
-    private List<string> ObtenerAtractivosPorDefecto(string nombre)
-    {
-        if (nombre.Contains("Gámeza", StringComparison.OrdinalIgnoreCase))
-            return new List<string> { "Cañón de Gámeza", "Laguna Negra", "Piedra Pintada Muisca", "Parque Minero Tradicional" };
-        if (nombre.Contains("Ráquira", StringComparison.OrdinalIgnoreCase))
-            return new List<string> { "Plaza de Cerámica", "Monasterio La Candelaria", "Talleres de Alfarería Tradicional" };
-        return new List<string> { "Plaza Principal", "Templo Colonial", "Senderos Ecoturísticos", "Mirador del Valle" };
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && !cargandoMunicipios)
+        cargandoSitios = true;
+        try
         {
-            await InicializarMapaAsync();
+            var sitiosTask = SitioService.ListarAsync(soloDestacados: true);
+            var categoriasTask = SitioService.ListarCategoriasAsync();
+            await Task.WhenAll(sitiosTask, categoriasTask);
+
+            sitiosTuristicos = sitiosTask.Result;
+
+            var idsConSitios = sitiosTuristicos
+                .Where(s => s.IdCategoria.HasValue)
+                .Select(s => s.IdCategoria!.Value)
+                .ToHashSet();
+
+            categoriasSitio = categoriasTask.Result
+                .Where(c => idsConSitios.Contains(c.IdCategoria))
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Inicio] Error cargando sitios turísticos: {ex.Message}");
+            sitiosTuristicos = new();
+            categoriasSitio = new();
+        }
+        finally
+        {
+            cargandoSitios = false;
         }
     }
 
+    private async Task IrAAnclaSiHay()
+    {
+        var fragmento = new Uri(Nav.Uri).Fragment;
+        if (fragmento.Length <= 1) return;
+
+        try { await JS.InvokeVoidAsync("irAAncla", fragmento[1..]); }
+        catch (Exception ex) { Console.WriteLine($"[Inicio] No se pudo ir a la sección: {ex.Message}"); }
+    }
+
+    // ════════════════════════════════════════════════
+    // 6. MODAL DEL SITIO
+    // ════════════════════════════════════════════════
+    private void AbrirDetalleSitio(SitioTuristicoDto sitio)
+    {
+        sitioSeleccionado = sitio;
+        enfocarBotonCerrar = true;
+    }
+
+    private void CerrarDetalleSitio() => sitioSeleccionado = null;
+
+    
+
+    private void TeclaEnModal(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape") CerrarDetalleSitio();
+    }
+
+    private async Task VerSitioEnMapa()
+    {
+        if (sitioSeleccionado is null) return;
+
+        var sitio = sitioSeleccionado;
+        var municipio = todosMunicipios.FirstOrDefault(m => m.IdMunicipio == sitio.IdMunicipio);
+        CerrarDetalleSitio();
+
+        if (municipio is null)
+        {
+            Nav.NavigateTo(UrlMunicipio(sitio.IdMunicipio));
+            return;
+        }
+
+        var resultado = new ResultadoBusqueda(
+            sitio.Nombre,
+            sitio.NombreMunicipio,
+            sitio.IconoCategoria ?? "ph ph-star",
+            municipio,
+            sitio);
+
+        await SeleccionarResultado(resultado, desplazar: true);
+    }
+
+    // ════════════════════════════════════════════════
+    // 7. BUSCADOR
+    // ════════════════════════════════════════════════
+    private void MostrarBuscador() => mostrarBuscador = !mostrarBuscador;
+
+    /// <summary>Se ejecuta en cada tecla (gracias a @bind:after).</summary>
+    private void ActualizarSugerencias()
+    {
+        sugerenciaActiva = -1;
+        var consulta = Normalizar(textoBusqueda);
+
+        if (consulta.Length < 2)
+        {
+            sugerencias = new();
+            mostrarSugerencias = false;
+            return;
+        }
+
+        sugerencias = BuscarResultados(consulta).Take(MaxSugerencias).ToList();
+        mostrarSugerencias = sugerencias.Count > 0;
+    }
+
+    /// <summary>Municipios primero (los que EMPIEZAN con el texto, arriba), luego sitios.</summary>
+    private IEnumerable<ResultadoBusqueda> BuscarResultados(string consulta)
+    {
+        var municipios = todosMunicipios
+            .Select(m => (Municipio: m, Clave: Normalizar(m.Nombre)))
+            .Where(x => x.Clave.Contains(consulta))
+            .OrderBy(x => x.Clave.StartsWith(consulta) ? 0 : 1)
+            .ThenBy(x => x.Municipio.Nombre)
+            .Select(x => new ResultadoBusqueda(
+                x.Municipio.Nombre,
+                "Municipio de Boyacá",
+                "ph ph-map-pin",
+                x.Municipio,
+                null));
+
+        var sitios = sitiosTuristicos
+            .Where(s => Normalizar(s.Nombre).Contains(consulta))
+            .Select(s => (Sitio: s, Municipio: todosMunicipios.FirstOrDefault(m => m.IdMunicipio == s.IdMunicipio)))
+            .Where(x => x.Municipio is not null)
+            .Select(x => new ResultadoBusqueda(
+                x.Sitio.Nombre,
+                $"{x.Sitio.NombreCategoria ?? "Sitio turístico"} · {x.Sitio.NombreMunicipio}",
+                x.Sitio.IconoCategoria ?? "ph ph-star",
+                x.Municipio!,
+                x.Sitio));
+
+        return municipios.Concat(sitios);
+    }
+
+    private void TeclaEnBuscador(KeyboardEventArgs e)
+    {
+        if (!mostrarSugerencias || sugerencias.Count == 0) return;
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                sugerenciaActiva = (sugerenciaActiva + 1) % sugerencias.Count;
+                break;
+            case "ArrowUp":
+                sugerenciaActiva = sugerenciaActiva <= 0 ? sugerencias.Count - 1 : sugerenciaActiva - 1;
+                break;
+            case "Escape":
+                mostrarSugerencias = false;
+                sugerenciaActiva = -1;
+                break;
+        }
+    }
+
+    private async Task DetectarEnterBusqueda(KeyboardEventArgs evento)
+    {
+        if (evento.Key == "Enter") await BuscarAsync(desplazar: true);
+    }
+
+    /// <summary>Enter o botón "Buscar": toma la sugerencia marcada o la primera.</summary>
+    private async Task BuscarAsync(bool desplazar)
+    {
+        var consulta = Normalizar(textoBusqueda);
+
+        if (consulta.Length == 0)
+        {
+            await LimpiarBusqueda();
+            return;
+        }
+
+        var resultados = BuscarResultados(consulta).ToList();
+
+        if (resultados.Count == 0)
+        {
+            mostrarSugerencias = false;
+            municipioEncontrado = null;
+            mensajeBusqueda = $"No encontramos nada para \"{textoBusqueda.Trim()}\". Prueba con un pueblo o un sitio, como \"Ráquira\" o \"Catedral\".";
+            await ActualizarMapaConFiltro(new());
+            return;
+        }
+
+        var elegido = sugerenciaActiva >= 0 && sugerenciaActiva < sugerencias.Count
+            ? sugerencias[sugerenciaActiva]
+            : resultados[0];
+
+        await SeleccionarResultado(elegido, desplazar);
+    }
+
+    /// <summary>Deja en el mapa solo ese municipio, vuela hasta él y abre el popup.</summary>
+    private async Task SeleccionarResultado(ResultadoBusqueda resultado, bool desplazar)
+    {
+        textoBusqueda = resultado.Titulo;
+        sugerencias = new();
+        mostrarSugerencias = false;
+        sugerenciaActiva = -1;
+        mostrarBuscador = false;
+        municipioEncontrado = resultado.Municipio;
+
+        mensajeBusqueda = resultado.Sitio is null
+            ? $"{resultado.Municipio.Nombre} está marcado en el mapa."
+            : $"{resultado.Sitio.Nombre} está en {resultado.Municipio.Nombre}.";
+
+        await ActualizarMapaConFiltro(new List<MunicipioListadoDto> { resultado.Municipio });
+        await EnfocarEnMapa(resultado.Municipio, resultado.Sitio?.Nombre, desplazar);
+    }
+
+    private async Task LimpiarBusqueda()
+    {
+        textoBusqueda = "";
+        sugerencias = new();
+        mostrarSugerencias = false;
+        sugerenciaActiva = -1;
+        mensajeBusqueda = null;
+        municipioEncontrado = null;
+
+        await ActualizarMapaConFiltro(todosMunicipios);
+
+        try { await JS.InvokeVoidAsync("TurismoConectaMapa.restablecerVista"); }
+        catch (Exception ex) { Console.WriteLine($"[Inicio] Error restableciendo el mapa: {ex.Message}"); }
+    }
+
+    // ════════════════════════════════════════════════
+    // 8. MAPA (interop con mapa-colombia.js)
+    // ════════════════════════════════════════════════
     private async Task InicializarMapaAsync()
     {
         if (mapaInicializado) return;
 
-        var municipiosParaMapa = todosMunicipios
-            .Where(m => m.Latitud.HasValue && m.Longitud.HasValue)
-            .Select(m => new { id = m.IdMunicipio, nombre = m.Nombre, latitud = m.Latitud!.Value, longitud = m.Longitud!.Value })
-            .ToList();
-
         try
         {
-            await JS.InvokeVoidAsync("TurismoConectaMapa.inicializar", municipiosParaMapa, DotNetObjectReference.Create(this));
+            referenciaDotNet ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("TurismoConectaMapa.inicializar", ConvertirParaMapa(todosMunicipios), referenciaDotNet);
             await JS.InvokeVoidAsync("TurismoConectaMapa.activarScroll");
             mapaInicializado = true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error al inicializar mapa: {ex.Message}");
+            Console.WriteLine($"[Inicio] Error al inicializar mapa: {ex.Message}");
         }
-    }
-
-    private void MostrarBuscador() => mostrarBuscador = !mostrarBuscador;
-
-    private void DetectarEnterBusqueda(KeyboardEventArgs evento)
-    {
-        if (evento.Key == "Enter") Buscar();
-    }
-
-    private void Buscar()
-    {
-        var texto = textoBusqueda?.Trim() ?? "";
-
-        if (string.IsNullOrWhiteSpace(texto))
-        {
-            LimpiarBusqueda();
-            return;
-        }
-
-        var porNombre = todosMunicipios
-            .Where(m => m.Nombre.Contains(texto, StringComparison.OrdinalIgnoreCase))
-            .ToList();
-
-        var porAtractivo = todosMunicipios
-            .Where(m => ObtenerAtractivosPorDefecto(m.Nombre).Any(a => a.Contains(texto, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-
-        var combinados = porNombre.Union(porAtractivo).ToList();
-
-        if (combinados.Count == 0)
-        {
-            municipiosMostrados = new();
-            mensajeBusqueda = $"No encontramos nada para \"{texto}\". Prueba con el nombre de un pueblo o un sitio, como \"Plaza\" o \"Laguna\".";
-        }
-        else
-        {
-            municipiosMostrados = combinados;
-            mensajeBusqueda = (porAtractivo.Any() && !porNombre.Any())
-                ? $"\"{texto}\" está en: {string.Join(", ", porAtractivo.Select(m => m.Nombre))}"
-                : null;
-        }
-
-        _ = ActualizarMapaConFiltro(municipiosMostrados);
-    }
-
-    private void LimpiarBusqueda()
-    {
-        textoBusqueda = "";
-        municipiosMostrados = todosMunicipios;
-        mensajeBusqueda = null;
-        _ = ActualizarMapaConFiltro(municipiosMostrados);
     }
 
     private async Task ActualizarMapaConFiltro(List<MunicipioListadoDto> lista)
     {
-        var paraMapa = lista
-            .Where(m => m.Latitud.HasValue && m.Longitud.HasValue)
-            .Select(m => new { id = m.IdMunicipio, nombre = m.Nombre, latitud = m.Latitud!.Value, longitud = m.Longitud!.Value })
-            .ToList();
-
-        await JS.InvokeVoidAsync("TurismoConectaMapa.actualizarMarcadores", paraMapa);
+        try
+        {
+            await JS.InvokeVoidAsync("TurismoConectaMapa.actualizarMarcadores", ConvertirParaMapa(lista));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Inicio] Error actualizando marcadores: {ex.Message}");
+        }
     }
 
-    private void AbrirMunicipio(int idMunicipio) => Nav.NavigateTo($"/municipios/{idMunicipio}");
+    private async Task EnfocarEnMapa(MunicipioListadoDto municipio, string? subtitulo, bool desplazar)
+    {
+        if (!municipio.Latitud.HasValue || !municipio.Longitud.HasValue)
+        {
+            mensajeBusqueda = $"{municipio.Nombre} todavía no tiene ubicación registrada en el mapa.";
+            return;
+        }
 
-    private void FiltrarPorEtiqueta(int idEtiqueta) => Nav.NavigateTo($"/municipios?idEtiqueta={idEtiqueta}");
+        var datos = new
+        {
+            id = municipio.IdMunicipio,
+            nombre = municipio.Nombre,
+            latitud = municipio.Latitud.Value,
+            longitud = municipio.Longitud.Value,
+            subtitulo
+        };
+
+        try
+        {
+            await JS.InvokeVoidAsync("TurismoConectaMapa.enfocarMunicipio", datos, desplazar);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Inicio] Error enfocando el mapa: {ex.Message}");
+        }
+    }
+
+    private static List<object> ConvertirParaMapa(IEnumerable<MunicipioListadoDto> lista) =>
+        lista
+            .Where(m => m.Latitud.HasValue && m.Longitud.HasValue)
+            .Select(m => (object)new
+            {
+                id = m.IdMunicipio,
+                nombre = m.Nombre,
+                latitud = m.Latitud!.Value,
+                longitud = m.Longitud!.Value
+            })
+            .ToList();
 
     [JSInvokable]
     public void ActualizarZonaMapa(string zona)
@@ -837,9 +1080,36 @@
     }
 
     [JSInvokable]
-    public void AbrirMunicipioDesdeMapa(int idMunicipio)
+    public void AbrirMunicipioDesdeMapa(int idMunicipio) => Nav.NavigateTo(UrlMunicipio(idMunicipio));
+
+    // ════════════════════════════════════════════════
+    // 9. NAVEGACIÓN Y SESIÓN
+    // ════════════════════════════════════════════════
+    private void FiltrarPorEtiqueta(int idEtiqueta) => Nav.NavigateTo($"/municipios?idEtiqueta={idEtiqueta}");
+
+    private async Task IrAlDashboard()
     {
-        AbrirMunicipio(idMunicipio);
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (!user.Identity?.IsAuthenticated ?? true)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var rol = user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value
+               ?? user.FindFirst("role")?.Value;
+
+        var destino = rol switch
+        {
+            Roles.AdminGeneral => "/admin/dashboard",
+            Roles.AdminMunicipio => "/municipio/dashboard",
+            Roles.AdminEstablecimiento => "/comercio/dashboard",
+            _ => "/perfil"
+        };
+
+        Nav.NavigateTo(destino);
     }
 
     private async Task CerrarSesion()
@@ -850,5 +1120,22 @@
             jwt.NotificarCambioAutenticacion();
         }
         Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    // ════════════════════════════════════════════════
+    // 10. LIMPIEZA AL SALIR DE LA PÁGINA
+    // ════════════════════════════════════════════════
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("TurismoConectaMapa.destruir");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Inicio] Error destruyendo mapa: {ex.Message}");
+        }
+
+        referenciaDotNet?.Dispose();
     }
 }

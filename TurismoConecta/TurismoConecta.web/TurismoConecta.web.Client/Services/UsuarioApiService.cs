@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using TurismoConecta.web.Client.Models;
+using TurismoConecta.web.Client.Constants;
 
 namespace TurismoConecta.web.Client.Services
 {
@@ -36,10 +37,10 @@ namespace TurismoConecta.web.Client.Services
             {
                 return new List<RolInfo>
                 {
-                    new() { Nombre = "Turista", Descripcion = "Viajero y explorador" },
-                    new() { Nombre = "AdminComercio", Descripcion = "Dueño de negocio local" },
-                    new() { Nombre = "AdminMunicipio", Descripcion = "Gestor turístico municipal" },
-                    new() { Nombre = "AdminGeneral", Descripcion = "Superadministrador" }
+                    new() { Nombre = Roles.Usuario, Descripcion = "Viajero y explorador" },
+                    new() { Nombre = Roles.Usuario, Descripcion = "Dueño de negocio local" },
+                    new() { Nombre = Roles.AdminMunicipio, Descripcion = "Gestor turístico municipal" },
+                    new() { Nombre = Roles.AdminGeneral, Descripcion = "Superadministrador" }
                 };
             }
         }
@@ -125,29 +126,19 @@ namespace TurismoConecta.web.Client.Services
         {
             try
             {
-                var regDto = new
-                {
-                    nombre = dto.Nombre,
-                    apellido = dto.Apellido,
-                    email = dto.Email,
-                    password = dto.Password,
-                    telefono = dto.Telefono
-                };
+                var respuesta = await _http.PostAsJsonAsync("api/usuarios", dto, ct);
 
-                var respuesta = await _http.PostAsJsonAsync("api/auth/register", regDto, ct);
-                if (!respuesta.IsSuccessStatusCode)
-                {
-                    var err = await respuesta.Content.ReadAsStringAsync(ct);
-                    return (false, err);
-                }
+                if (respuesta.IsSuccessStatusCode)
+                    return (true, null);
 
-                return (true, null);
+                return (false, await ErrorApi.LeerMensajeAsync(respuesta, "No se pudo crear el usuario."));
             }
             catch (Exception ex)
             {
                 return (false, ex.Message);
             }
         }
+
 
         public async Task<PerfilResponse?> ObtenerPerfilAsync(CancellationToken ct = default)
         {

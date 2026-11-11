@@ -1,4 +1,4 @@
-﻿@using TurismoConecta.web.Client.Pages
+@using TurismoConecta.web.Client.Pages
 @using TurismoConecta.web.Client.Services
 @inject AsistenteApiService Asistente
 
@@ -31,7 +31,7 @@
             </div>
 
             <form class="condor-form" @onsubmit="Enviar">
-                <input @bind="entrada" @bind:event="oninput" placeholder="Pregúntame por un pueblo o plan..." />
+                <input @bind="entrada" @bind:event="oninput" placeholder="Pregúntame por un pueblo o plan..." maxlength="600" />
                 <button type="submit" disabled="@cargando">➤</button>
             </form>
         </div>
@@ -47,6 +47,9 @@
 </div>
 
 @code {
+    /// <summary>Situación del viaje en curso (la pone ModoViaje). Sin coordenadas del usuario.</summary>
+    [Parameter] public string? Contexto { get; set; }
+
     private bool abierto = false;
     private bool cargando = false;
     private string entrada = "";
@@ -54,6 +57,14 @@
     {
         new TurnoChat { Rol = "assistant", Contenido = "¡Buenas! Soy el Cóndor Guía. ¿Qué tipo de plan buscas en Boyacá: naturaleza, historia, gastronomía?" }
     };
+
+    /// <summary>Lo usa ModoViaje para que el Cóndor "narre" lo que va pasando en el camino.</summary>
+    public void AgregarMensajeCondor(string texto, bool abrirPanel = true)
+    {
+        mensajes.Add(new TurnoChat { Rol = "assistant", Contenido = texto });
+        if (abrirPanel) abierto = true;
+        StateHasChanged();
+    }
 
     private async Task Enviar()
     {
@@ -64,7 +75,7 @@
         entrada = "";
         cargando = true;
 
-        var respuesta = await Asistente.EnviarMensajeAsync(textoUsuario, mensajes.SkipLast(1).ToList());
+        var respuesta = await Asistente.EnviarMensajeAsync(textoUsuario, mensajes.SkipLast(1).ToList(), Contexto);
         mensajes.Add(new TurnoChat { Rol = "assistant", Contenido = respuesta });
         cargando = false;
     }

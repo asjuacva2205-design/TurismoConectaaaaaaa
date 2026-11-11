@@ -24,12 +24,27 @@ namespace TurismoConecta.web.Client.Services
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { return null; }
         }
 
+        /// <summary>Todos los municipios activos con coordenadas (endpoint api/municipios/mapa).</summary>
+        public async Task<List<MunicipioListadoDto>> ListarParaMapaAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                return await _http.GetFromJsonAsync<List<MunicipioListadoDto>>("api/municipios/mapa", ct) ?? new();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                Console.WriteLine($"[MunicipioApiService] No se pudo cargar el mapa: {ex.Message}");
+                return new();
+            }
+        }
+
         public async Task<MunicipioFichaDto?> ObtenerFichaAsync(int id, CancellationToken ct = default)
         {
             try { return await _http.GetFromJsonAsync<MunicipioFichaDto>($"api/municipios/{id}", ct); }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { return null; }
         }
-
+        // Forma de la respuesta de POST api/municipios: { "idMunicipio": 7 }
+        private sealed record RespuestaCrearMunicipio(int IdMunicipio);
         public async Task<(bool Exito, int Id, string? Error)> CrearAsync(
             MunicipioCrearDto dto, CancellationToken ct = default)
         {
@@ -38,8 +53,8 @@ namespace TurismoConecta.web.Client.Services
                 var response = await _http.PostAsJsonAsync("api/municipios", dto, ct);
                 if (response.IsSuccessStatusCode)
                 {
-                    var id = await response.Content.ReadFromJsonAsync<int>(cancellationToken: ct);
-                    return (true, id, null);
+                    var respuesta = await response.Content.ReadFromJsonAsync<RespuestaCrearMunicipio>(cancellationToken: ct);
+                    return (true, respuesta?.IdMunicipio ?? 0, null);
                 }
                 var err = await response.Content.ReadAsStringAsync(ct);
                 return (false, 0, err);
@@ -75,9 +90,9 @@ namespace TurismoConecta.web.Client.Services
                 using var content = new MultipartFormDataContent();
                 var fileContent = new StreamContent(archivo.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
                 fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(archivo.ContentType);
-                content.Add(fileContent, "imagen", archivo.Name);
+                content.Add(fileContent, "archivo", archivo.Name);
 
-                var response = await _http.PostAsync("api/municipios/upload-imagen", content, ct);
+                var response = await _http.PostAsync("api/municipios/subir-imagen", content, ct);
                 if (response.IsSuccessStatusCode)
                 {
                     var res = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
@@ -223,13 +238,6 @@ namespace TurismoConecta.web.Client.Services
         public string? WhatsApp => Telefono?.Replace(" ", "").Replace("+", "");
         public string? BookingUrl { get; set; }
 
-        public string NombreCategoria => IdCategoria switch
-        {
-            1 => "Hospedaje & Hotelería",
-            2 => "Gastronomía & Cafés",
-            3 => "Ecoturismo, Parques & Aventura",
-            4 => "Artesanías & Cultura Local",
-            _ => "Comercio Local"
-        };
+        public string NombreCategoria { get; set; } = string.Empty;
     }
 }

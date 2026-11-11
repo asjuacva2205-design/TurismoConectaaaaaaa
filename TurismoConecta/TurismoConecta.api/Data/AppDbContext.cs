@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using TurismoConecta.api.Models;
@@ -74,6 +74,8 @@ public partial class AppDbContext : DbContext
                 .HasMaxLength(100)
                 .UseCollation("Modern_Spanish_CI_AI")
                 .HasColumnName("nombre");
+            entity.Property(e => e.AplicaNegocio).HasColumnName("aplicaNegocio");
+            entity.Property(e => e.AplicaSitio).HasColumnName("aplicaSitio");
         });
 
         modelBuilder.Entity<Departamento>(entity =>
@@ -198,6 +200,8 @@ public partial class AppDbContext : DbContext
         {
             entity.ToTable("SitiosTuristicos");
             entity.HasKey(e => e.IdSitioTuristico);
+
+            // ── Columnas existentes ──
             entity.Property(e => e.IdSitioTuristico).HasColumnName("idSitiosTuristicos");
             entity.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(150).IsRequired();
             entity.Property(e => e.Descripcion).HasColumnName("descripcion").HasMaxLength(1000);
@@ -205,15 +209,29 @@ public partial class AppDbContext : DbContext
             entity.Property(e => e.IdMunicipio).HasColumnName("idMunicipio");
             entity.Property(e => e.IdReseña).HasColumnName("idReseña");
 
+            // ── Columnas nuevas ──
+            entity.Property(e => e.IdCategoria).HasColumnName("idCategoria");
+            entity.Property(e => e.Altitud).HasColumnName("altitud");
+            entity.Property(e => e.Destacado).HasColumnName("destacado").HasDefaultValue(false);
+            entity.Property(e => e.Activo).HasColumnName("activo").HasDefaultValue(true);
+
+            // ── Relaciones ──
             entity.HasOne(e => e.IdMunicipioNavigation)
                 .WithMany()
                 .HasForeignKey(e => e.IdMunicipio)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_SitiosTuristicos_Municipio");
 
             entity.HasOne(e => e.IdReseñaNavigation)
                 .WithMany()
                 .HasForeignKey(e => e.IdReseña)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.IdCategoriaNavigation)
+                .WithMany(c => c.SitiosTuristicos)
+                .HasForeignKey(e => e.IdCategoria)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("FK_SitiosTuristicos_Categoria");
         });
 
         modelBuilder.Entity<Itinerario>(entity =>

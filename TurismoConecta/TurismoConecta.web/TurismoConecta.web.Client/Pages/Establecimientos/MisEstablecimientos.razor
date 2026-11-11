@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="Pages/Establecimientos/MisEstablecimientos.razor.css" />
 </HeadContent>
 
-<AuthorizeView Roles="AdminComercio,AdminGeneral,AdminPrincipal">
+<AuthorizeView Roles="@Roles.GeneralOEstablecimiento">
     <Authorized Context="authContext">
         <div class="panel-comercio-wrap">
             <header class="panel-topbar">
@@ -78,15 +78,15 @@
                             <span class="stat-lbl">Total Registrados</span>
                         </div>
                         <div class="stat-card verde">
-                            <span class="stat-num">@misNegocios.Count(n => n.Estado == "Aprobado")</span>
+                            <span class="stat-num">@misNegocios.Count(n => n.Estado == EstadosNegocio.Aprobado)</span>
                             <span class="stat-lbl">Activos y Visibles</span>
                         </div>
                         <div class="stat-card ambar">
-                            <span class="stat-num">@misNegocios.Count(n => n.Estado == "Pendiente")</span>
+                            <span class="stat-num">@misNegocios.Count(n => n.Estado == EstadosNegocio.Pendiente)</span>
                             <span class="stat-lbl">En Revisión</span>
                         </div>
                         <div class="stat-card rojo">
-                            <span class="stat-num">@misNegocios.Count(n => n.Estado == "Rechazado")</span>
+                            <span class="stat-num">@misNegocios.Count(n => n.Estado == EstadosNegocio.Rechazado)</span>
                             <span class="stat-lbl">Rechazados</span>
                         </div>
                     </div>
@@ -123,7 +123,7 @@
                                         </p>
                                     }
 
-                                    @if (n.Estado == "Pendiente")
+                                    @if (n.Estado == EstadosNegocio.Pendiente)
                                     {
                                         <div class="alerta-estado-info">
                                             Tu solicitud está en proceso de verificación por la alcaldía municipal.
@@ -166,7 +166,7 @@
     private async Task Volver()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (auth.User.IsInRole("AdminGeneral"))
+        if (auth.User.IsInRole(Roles.AdminGeneral))
             Nav.NavigateTo("/admin/dashboard");
         else
             Nav.NavigateTo("/comercio/dashboard");

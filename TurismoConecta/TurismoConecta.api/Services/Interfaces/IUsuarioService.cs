@@ -12,5 +12,6 @@ namespace TurismoConecta.api.Services.Interfaces
         Task<bool> ActualizarUsuarioAdminAsync(int idUsuario, UsuarioAdminEdicionDto dto);
         Task<bool> EliminarUsuarioAsync(int idUsuario);
         Task<bool> CambiarEstadoAsync(int idUsuario, bool activo);
+        Task<(bool exito, string? error)> CrearUsuarioAdminAsync(UsuarioAdminCrearDto dto);
     }
 }

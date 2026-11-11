@@ -1,9 +1,11 @@
 @page "/comercio/dashboard"
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IDisposable
 @using TurismoConecta.web.Client.Services
 @using TurismoConecta.web.Client.Models
 @inject NegocioApiService NegocioService
+@inject NotificacionTiempoRealService Notif
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject IJSRuntime JS
@@ -17,7 +19,7 @@
     <link rel="stylesheet" href="Pages/Comercio/DashboardComercio.razor.css" />
 </HeadContent>
 
-<AuthorizeView Roles="AdminComercio,AdminGeneral,AdminPrincipal">
+<AuthorizeView Roles="@Roles.GeneralOEstablecimiento">
     <Authorized Context="authContext">
         <div class="dashboard-comercio-page">
 
@@ -42,6 +44,7 @@
                         </a>
                     </nav>
                     <div class="comercio-topbar-right">
+                        <CampanaNotificaciones />
                         <span class="badge-comercio">Comerciante</span>
                         <a href="/perfil" class="comercio-avatar-link">
                             @authContext.User.Identity?.Name?.Split(' ').FirstOrDefault() ?? "Mi Cuenta"
@@ -105,21 +108,21 @@
                             <div class="comercio-kpi-ico">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
                             </div>
-                            <div class="comercio-kpi-num">@misNegocios.Count(n => n.Estado == "Aprobado")</div>
+                            <div class="comercio-kpi-num">@misNegocios.Count(n => n.Estado == EstadosNegocio.Aprobado)</div>
                             <div class="comercio-kpi-lbl">Activos y Visibles</div>
                         </div>
                         <div class="comercio-kpi revision-kpi">
                             <div class="comercio-kpi-ico">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             </div>
-                            <div class="comercio-kpi-num">@misNegocios.Count(n => n.Estado == "Pendiente")</div>
+                            <div class="comercio-kpi-num">@misNegocios.Count(n => n.Estado == EstadosNegocio.Pendiente)</div>
                             <div class="comercio-kpi-lbl">En Revisión</div>
                         </div>
                         <div class="comercio-kpi rechazo-kpi">
                             <div class="comercio-kpi-ico">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
                             </div>
-                            <div class="comercio-kpi-num">@misNegocios.Count(n => n.Estado == "Rechazado")</div>
+                            <div class="comercio-kpi-num">@misNegocios.Count(n => n.Estado == EstadosNegocio.Rechazado)</div>
                             <div class="comercio-kpi-lbl">Rechazados</div>
                         </div>
                     </div>
@@ -219,19 +222,25 @@
                                 </ul>
                             </div>
 
-                            @if (misNegocios.Any(n => n.Estado == "Pendiente"))
+                            @if (misNegocios.Any(n => n.Estado == EstadosNegocio.Pendiente))
                             {
                                 <div class="comercio-card aviso-pendiente">
                                     <div class="aviso-ico">
                                         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                                     </div>
                                     <div class="aviso-texto">
-                                        <strong>@misNegocios.Count(n => n.Estado == "Pendiente") establecimiento(s) en revisión</strong>
+                                        <strong>@misNegocios.Count(n => n.Estado == EstadosNegocio.Pendiente) establecimiento(s) en revisión</strong>
                                         <p>La alcaldía municipal está verificando tu información. Te notificaremos cuando sea aprobado.</p>
                                     </div>
                                 </div>
                             }
                         </div>
+                    </div>
+
+                    <!-- RESEÑAS DE MIS ESTABLECIMIENTOS (HU-29) -->
+                    <div class="comercio-card comercio-card-resenas">
+                        <h2 class="comercio-card-titulo">Reseñas de mis establecimientos</h2>
+                        <PanelResenasComercio />
                     </div>
                 }
             </main>
@@ -252,7 +261,17 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cargando = true;
+        // ◆ Escuchar avisos en tiempo real
+        Notif.NotificacionRecibida += AlRecibirNotificacion;
+
+        await CargarMisNegociosAsync();
+    }
+
+    // ◆ La carga en un método aparte, para repetirla cuando llegue un aviso.
+    //   mostrarCargando = false → recarga sin spinner (la página no "parpadea").
+    private async Task CargarMisNegociosAsync(bool mostrarCargando = true)
+    {
+        if (mostrarCargando) cargando = true;
         try
         {
             misNegocios = await NegocioService.ListarMisNegociosAsync();
@@ -264,6 +283,19 @@
         }
     }
 
+    // ◆ Si el admin municipal aprobó o rechazó, recargamos los KPIs y los chips de estado
+    private void AlRecibirNotificacion(NotificacionDto notificacion)
+    {
+        if (notificacion.Codigo != CodigosNotificacion.NegocioAprobado &&
+            notificacion.Codigo != CodigosNotificacion.NegocioRechazado) return;
+
+        _ = InvokeAsync(async () =>
+        {
+            await CargarMisNegociosAsync(mostrarCargando: false);
+            StateHasChanged();
+        });
+    }
+
     private async Task CerrarSesion()
     {
         await JS.InvokeVoidAsync("borrarToken");
@@ -272,5 +304,11 @@
             jwt.NotificarCambioAutenticacion();
         }
         Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    // ◆ Obligatorio por @implements IDisposable
+    public void Dispose()
+    {
+        Notif.NotificacionRecibida -= AlRecibirNotificacion;
     }
 }

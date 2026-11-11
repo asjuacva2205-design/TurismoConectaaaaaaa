@@ -1,6 +1,8 @@
 @page "/municipio/dashboard"
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@implements IDisposable
+@inject NotificacionTiempoRealService Notif
 @using TurismoConecta.web.Client.Services
 @using TurismoConecta.web.Client.Models
 @inject NegocioApiService NegocioService
@@ -18,7 +20,7 @@
     <link rel="stylesheet" href="Pages/Municipio/DashboardMunicipio.razor.css" />
 </HeadContent>
 
-<AuthorizeView Roles="AdminMunicipio,AdminGeneral,AdminPrincipal">
+<AuthorizeView Roles="@Roles.GeneralOMunicipio">
     <Authorized Context="authContext">
         <div class="dashboard-muni-page">
 
@@ -29,10 +31,15 @@
                         <img src="images/turismo-conecta-logo.png" alt="Turismo Conecta" />
                     </a>
                     <nav class="muni-nav-links">
+                        <a href="/municipio/sitios" class="muni-nav-link">
+                            <i class="ph ph-mountains" aria-hidden="true" style="vertical-align: -2px; margin-right: 4px;"></i>
+                            <span>Sitios Turísticos</span>
+                        </a>
                         <a href="/establecimientos/pendientes" class="muni-nav-link activo">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                             <span>Bandeja Pendientes</span>
                         </a>
+
                         <a href="/municipios" class="muni-nav-link">
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 4px;"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
                             <span>Ver Municipios</span>
@@ -43,6 +50,7 @@
                         </a>
                     </nav>
                     <div class="muni-topbar-right">
+                        <CampanaNotificaciones />
                         <div class="badge-admin-info">
                             <img src="https://ui-avatars.com/api/?name=@Uri.EscapeDataString(authContext.User.Identity?.Name ?? "Gestor")&background=213b31&color=fff&size=80" alt="Foto" class="admin-avatar-topbar"
                                  onerror="this.onerror=null;this.style.display='none';" />
@@ -172,6 +180,15 @@
                         <div class="muni-card">
                             <h2 class="muni-card-titulo">Herramientas de Gestión</h2>
                             <div class="muni-herramientas">
+                                <button class="muni-herramienta-btn" @onclick='() => Nav.NavigateTo("/municipio/sitios")'>
+                                    <div class="muni-tool-ico">
+                                        <i class="ph ph-mountains" aria-hidden="true" style="font-size: 20px;"></i>
+                                    </div>
+                                    <div>
+                                        <div class="muni-tool-titulo">Sitios Turísticos</div>
+                                        <div class="muni-tool-desc">Crear, editar y destacar los atractivos del municipio</div>
+                                    </div>
+                                </button>
                                 <button class="muni-herramienta-btn" @onclick='() => Nav.NavigateTo("/establecimientos/pendientes")'>
                                     <div class="muni-tool-ico">
                                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -220,6 +237,12 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- MODERACIÓN DE RESEÑAS (HU-30) -->
+                    <div class="muni-card muni-card-resenas">
+                        <h2 class="muni-card-titulo">Moderación de reseñas</h2>
+                        <PanelModeracionResenas />
+                    </div>
                 }
             </main>
         </div>
@@ -242,19 +265,52 @@
 
     protected override async Task OnInitializedAsync()
     {
-        cargando = true;
+        // ◆ CAMBIO: escuchar las notificaciones en tiempo real
+        Notif.NotificacionRecibida += AlRecibirNotificacion;
+
+        await CargarPendientesAsync();
+    }
+
+    // ◆ NUEVO: la carga se separó en su propio método para poder repetirla
+    //   cuando llegue un aviso, sin volver a ejecutar OnInitializedAsync.
+    //   mostrarCargando = false → recarga en silencio (sin spinner que haga "parpadear" la página).
+    private async Task CargarPendientesAsync(bool mostrarCargando = true)
+    {
+        if (mostrarCargando) cargando = true;
         try
         {
-            pendientes = await NegocioService.ListarPendientesAsync();
+            // Pendientes (lista) y KPIs (conteos) en paralelo
+            var tareaPendientes = NegocioService.ListarPendientesAsync();
+            var tareaResumen = NegocioService.ObtenerResumenAsync();
+            await Task.WhenAll(tareaPendientes, tareaResumen);
+
+            pendientes = tareaPendientes.Result;
+            var resumen = tareaResumen.Result;
+
             cantPendientes = pendientes.Count;
-            // Nota: para aprobados/rechazados se podría agregar endpoint futuro
-            // Por ahora mostramos los pendientes que tenemos
+            cantAprobados = resumen?.Aprobados ?? 0;
+            cantRechazados = resumen?.Rechazados ?? 0;
         }
         catch { }
         finally
         {
             cargando = false;
         }
+    }
+    
+
+    // ◆ NUEVO: se ejecuta cuando SignalR entrega "NuevaNotificacion" a este usuario
+    private void AlRecibirNotificacion(NotificacionDto notificacion)
+    {
+        // Solo nos interesa "llegó un negocio nuevo por revisar"
+        if (notificacion.Codigo != CodigosNotificacion.NegocioPendiente) return;
+
+        // SignalR llama desde fuera de Blazor → InvokeAsync devuelve el control al componente
+        _ = InvokeAsync(async () =>
+        {
+            await CargarPendientesAsync(mostrarCargando: false);
+            StateHasChanged();   // repinta el KPI, el badge y la lista
+        });
     }
 
     private async Task CerrarSesion()
@@ -265,5 +321,10 @@
             jwt.NotificarCambioAutenticacion();
         }
         Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        Notif.NotificacionRecibida -= AlRecibirNotificacion;
     }
 }

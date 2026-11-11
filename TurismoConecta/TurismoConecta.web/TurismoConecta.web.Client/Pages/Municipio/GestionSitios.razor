@@ -1,0 +1,716 @@
+@page "/municipio/sitios"
+@layout EmptyLayout
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject SitioTuristicoApiService SitioService
+@inject MunicipioApiService MunicipioService
+@inject ApiConfig Api
+
+<PageTitle>Sitios turísticos | Panel municipal</PageTitle>
+
+<HeadContent>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</HeadContent>
+
+<AuthorizeView Roles="@Roles.GeneralOMunicipio">
+    <Authorized Context="auth">
+        <div class="gs-page">
+
+            @* ═══════ BARRA SUPERIOR ═══════ *@
+            <header class="gs-topbar">
+                <div class="gs-topbar-inner">
+                    <a href="@UrlPanel" class="gs-enlace-topbar">
+                        <i class="ph ph-arrow-left" aria-hidden="true"></i> Volver al panel
+                    </a>
+                    <a href="/#donde-ir" class="gs-enlace-topbar" target="_blank" rel="noopener">
+                        Ver en el portal <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </header>
+
+            <main class="gs-main">
+
+                @* ═══════ ENCABEZADO ═══════ *@
+                <section class="gs-encabezado">
+                    <div>
+                        <span class="gs-eyebrow">Gestión de contenido</span>
+                        <h1>Sitios turísticos</h1>
+                        <p class="gs-bajada">@TextoAmbito</p>
+                    </div>
+                    <button type="button" class="gs-btn gs-btn-primario" @onclick="AbrirNuevo" disabled="@(!PuedeCrear || cargando)">
+                        <i class="ph ph-plus" aria-hidden="true"></i> Nuevo sitio
+                    </button>
+                </section>
+
+                @* ═══════ AVISO (éxito / error) ═══════ *@
+                @if (aviso is not null)
+                {
+                    <div class="gs-aviso @(avisoEsError ? "error" : "ok")" role="status">
+                        <i class="@(avisoEsError ? "ph ph-warning-circle" : "ph ph-check-circle")" aria-hidden="true"></i>
+                        <span>@aviso</span>
+                        <button type="button" class="gs-icono-btn" aria-label="Cerrar aviso" @onclick="() => aviso = null">
+                            <i class="ph ph-x" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                }
+
+                @* ═══════ CONTENIDO ═══════ *@
+                @if (cargando)
+                {
+                    <div class="gs-estado">
+                        <div class="gs-spinner"></div>
+                        <p>Cargando sitios turísticos…</p>
+                    </div>
+                }
+                else if (errorCarga is not null)
+                {
+                    <div class="gs-estado">
+                        <i class="ph ph-plugs" aria-hidden="true"></i>
+                        <p>@errorCarga</p>
+                        <button type="button" class="gs-btn gs-btn-secundario" @onclick="CargarTodo">
+                            <i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Reintentar
+                        </button>
+                    </div>
+                }
+                else if (!PuedeCrear)
+                {
+                    <div class="gs-estado">
+                        <i class="ph ph-map-pin-line" aria-hidden="true"></i>
+                        <p>Tu cuenta no tiene un municipio asignado. Pide al administrador general que te asigne uno.</p>
+                    </div>
+                }
+                else
+                {
+                    var visibles = SitiosVisibles;
+
+                    <section class="gs-resumen">
+                        <div><strong>@TotalSitios</strong><span>Sitios</span></div>
+                        <div><strong>@TotalPublicados</strong><span>Publicados</span></div>
+                        <div><strong>@TotalDestacados</strong><span>En el carrusel</span></div>
+                    </section>
+
+                    <section class="gs-filtros">
+                        <div class="gs-buscar">
+                            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                            <input type="search"
+                                   placeholder="Buscar por nombre…"
+                                   aria-label="Buscar sitio por nombre"
+                                   @bind="textoFiltro"
+                                   @bind:event="oninput" />
+                        </div>
+
+                        <select @bind="filtroEstado" aria-label="Filtrar por estado">
+                            <option value="todos">Todos los estados</option>
+                            <option value="publicados">Publicados</option>
+                            <option value="ocultos">Ocultos</option>
+                            <option value="destacados">En el carrusel</option>
+                        </select>
+
+                        @if (panel!.EsAdminGeneral)
+                        {
+                            <select @bind="filtroMunicipio" aria-label="Filtrar por municipio">
+                                <option value="0">Todos los municipios</option>
+                                @foreach (var m in MunicipiosConSitios)
+                                {
+                                    <option value="@m.Id">@m.Nombre</option>
+                                }
+                            </select>
+                        }
+                    </section>
+
+                    @if (visibles.Count == 0)
+                    {
+                        <div class="gs-estado">
+                            <i class="ph ph-mountains" aria-hidden="true"></i>
+                            <p>
+                                @(TotalSitios == 0
+                                    ? "Aún no hay sitios turísticos. Crea el primero con «Nuevo sitio»."
+                                    : "Ningún sitio coincide con los filtros.")
+                            </p>
+                        </div>
+                    }
+                    else
+                    {
+                        <section class="gs-grid">
+                            @foreach (var sitio in visibles)
+                            {
+                                <article class="gs-card @(sitio.Activo ? "" : "oculto")" @key="sitio.IdSitioTuristico">
+                                    <div class="gs-card-imagen">
+                                        <img src="@Imagen(sitio.ImagenUrl)" alt="@sitio.Nombre" loading="lazy" />
+
+                                        <span class="gs-badge-estado @(sitio.Activo ? "publicado" : "oculto")">
+                                            <i class="@(sitio.Activo ? "ph ph-eye" : "ph ph-eye-slash")" aria-hidden="true"></i>
+                                            @(sitio.Activo ? "Publicado" : "Oculto")
+                                        </span>
+
+                                        <button type="button"
+                                                class="gs-btn-destacar @(sitio.Destacado ? "activo" : "")"
+                                                title="@(sitio.Destacado ? "Quitar del carrusel de inicio" : "Mostrar en el carrusel de inicio")"
+                                                aria-label="@(sitio.Destacado ? "Quitar del carrusel" : "Mostrar en el carrusel")"
+                                                aria-pressed="@(sitio.Destacado ? "true" : "false")"
+                                                disabled="@(!sitio.Activo || procesandoId == sitio.IdSitioTuristico)"
+                                                @onclick="() => AlternarDestacado(sitio)">
+                                            <i class="@(sitio.Destacado ? "ph-fill ph-star" : "ph ph-star")" aria-hidden="true"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="gs-card-cuerpo">
+                                        <h3>@sitio.Nombre</h3>
+                                        <p class="gs-card-meta">
+                                            <span><i class="@(sitio.IconoCategoria ?? "ph ph-tag")" aria-hidden="true"></i> @(sitio.NombreCategoria ?? "Sin categoría")</span>
+                                            <span><i class="ph ph-map-pin" aria-hidden="true"></i> @sitio.NombreMunicipio</span>
+                                            @if (sitio.Altitud.HasValue)
+                                            {
+                                                <span><i class="ph ph-mountains" aria-hidden="true"></i> @sitio.Altitud.Value.ToString("N0") m</span>
+                                            }
+                                        </p>
+                                        <p class="gs-card-desc">
+                                            @(string.IsNullOrWhiteSpace(sitio.Descripcion) ? "Sin descripción." : sitio.Descripcion)
+                                        </p>
+                                    </div>
+
+                                    <div class="gs-card-acciones">
+                                        <button type="button"
+                                                class="gs-btn gs-btn-texto"
+                                                disabled="@(procesandoId == sitio.IdSitioTuristico)"
+                                                @onclick="() => AbrirEdicion(sitio)">
+                                            <i class="ph ph-pencil-simple" aria-hidden="true"></i> Editar
+                                        </button>
+
+                                        @if (sitio.Activo)
+                                        {
+                                            <button type="button"
+                                                    class="gs-btn gs-btn-texto peligro"
+                                                    disabled="@(procesandoId == sitio.IdSitioTuristico)"
+                                                    @onclick="() => PedirConfirmacionOcultar(sitio)">
+                                                <i class="ph ph-eye-slash" aria-hidden="true"></i> Ocultar
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button"
+                                                    class="gs-btn gs-btn-texto"
+                                                    disabled="@(procesandoId == sitio.IdSitioTuristico)"
+                                                    @onclick="() => CambiarEstado(sitio, true)">
+                                                <i class="ph ph-eye" aria-hidden="true"></i> Publicar
+                                            </button>
+                                        }
+                                    </div>
+                                </article>
+                            }
+                        </section>
+                    }
+                }
+            </main>
+
+            @* ═══════ MODAL: FORMULARIO CREAR / EDITAR ═══════ *@
+            @if (formularioAbierto)
+            {
+                <div class="gs-modal-fondo">
+                    <div class="gs-modal" role="dialog" aria-modal="true" aria-labelledby="gs-form-titulo">
+                        <header class="gs-modal-header">
+                            <h2 id="gs-form-titulo">@(idEditando is null ? "Nuevo sitio turístico" : "Editar sitio turístico")</h2>
+                            <button type="button" class="gs-icono-btn" aria-label="Cerrar" @onclick="CerrarFormulario" disabled="@(guardando || subiendoImagen)">
+                                <i class="ph ph-x" aria-hidden="true"></i>
+                            </button>
+                        </header>
+
+                        <EditForm Model="formulario" OnValidSubmit="Guardar" class="gs-form">
+                            <DataAnnotationsValidator />
+
+                            <div class="gs-form-grid">
+
+                                @* ── Columna izquierda: fotografía ── *@
+                                <div class="gs-form-imagen">
+                                    <span class="gs-label">Fotografía</span>
+
+                                    <div class="gs-preview">
+                                        @if (!string.IsNullOrWhiteSpace(formulario.ImagenUrl))
+                                        {
+                                            <img src="@Imagen(formulario.ImagenUrl)" alt="Vista previa de la fotografía" />
+                                            <button type="button" class="gs-preview-quitar" aria-label="Quitar fotografía" @onclick="QuitarImagen">
+                                                <i class="ph ph-trash" aria-hidden="true"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <div class="gs-preview-vacio">
+                                                <i class="ph ph-image" aria-hidden="true"></i>
+                                                <span>Sin fotografía</span>
+                                            </div>
+                                        }
+
+                                        @if (subiendoImagen)
+                                        {
+                                            <div class="gs-preview-cargando"><div class="gs-spinner"></div></div>
+                                        }
+                                    </div>
+
+                                    <label class="gs-btn gs-btn-secundario gs-btn-subir @(subiendoImagen ? "deshabilitado" : "")">
+                                        <i class="ph ph-upload-simple" aria-hidden="true"></i>
+                                        @(subiendoImagen ? "Subiendo…" : "Subir fotografía")
+                                        <InputFile OnChange="SubirImagen"
+                                                   accept=".jpg,.jpeg,.png,.webp"
+                                                   class="gs-input-oculto"
+                                                   disabled="@subiendoImagen" />
+                                    </label>
+                                    <small class="gs-ayuda">JPG, PNG o WebP · máximo 5 MB · preferible horizontal</small>
+
+                                    @if (errorImagen is not null)
+                                    {
+                                        <p class="gs-error">@errorImagen</p>
+                                    }
+                                </div>
+
+                                @* ── Columna derecha: datos ── *@
+                                <div class="gs-form-datos">
+                                    <div class="gs-campo">
+                                        <label for="gs-nombre">Nombre *</label>
+                                        <InputText id="gs-nombre" @bind-Value="formulario.Nombre" maxlength="150" placeholder="Ej: Laguna de Tota" />
+                                        <ValidationMessage For="() => formulario.Nombre" />
+                                    </div>
+
+                                    <div class="gs-campo-doble">
+                                        <div class="gs-campo">
+                                            <label for="gs-municipio">Municipio *</label>
+                                            @if (panel!.EsAdminGeneral && idEditando is null)
+                                            {
+                                                <InputSelect id="gs-municipio" @bind-Value="formulario.IdMunicipio">
+                                                    <option value="0">Selecciona…</option>
+                                                    @foreach (var m in municipios)
+                                                    {
+                                                        <option value="@m.IdMunicipio">@m.Nombre</option>
+                                                    }
+                                                </InputSelect>
+                                                <ValidationMessage For="() => formulario.IdMunicipio" />
+                                            }
+                                            else
+                                            {
+                                                <p id="gs-municipio" class="gs-solo-lectura">
+                                                    <i class="ph ph-map-pin" aria-hidden="true"></i> @nombreMunicipioFormulario
+                                                </p>
+                                            }
+                                        </div>
+
+                                        <div class="gs-campo">
+                                            <label for="gs-categoria">Categoría *</label>
+                                            <InputSelect id="gs-categoria" @bind-Value="formulario.IdCategoria">
+                                                <option value="">Selecciona…</option>
+                                                @foreach (var c in categorias)
+                                                {
+                                                    <option value="@c.IdCategoria">@c.Nombre</option>
+                                                }
+                                            </InputSelect>
+                                            <ValidationMessage For="() => formulario.IdCategoria" />
+                                        </div>
+                                    </div>
+
+                                    <div class="gs-campo">
+                                        <label for="gs-altitud">Altitud (msnm)</label>
+                                        <InputNumber id="gs-altitud" @bind-Value="formulario.Altitud" placeholder="Ej: 2525" />
+                                        <ValidationMessage For="() => formulario.Altitud" />
+                                    </div>
+
+                                    <div class="gs-campo">
+                                        <label for="gs-descripcion">Descripción</label>
+                                        <textarea id="gs-descripcion"
+                                                  rows="5"
+                                                  maxlength="1000"
+                                                  placeholder="¿Qué hace especial este lugar? ¿Qué puede hacer el turista allí?"
+                                                  @bind="formulario.Descripcion"
+                                                  @bind:event="oninput"></textarea>
+                                        <small class="gs-contador">@(formulario.Descripcion?.Length ?? 0) / 1000</small>
+                                        <ValidationMessage For="() => formulario.Descripcion" />
+                                    </div>
+
+                                    <label class="gs-check">
+                                        <InputCheckbox @bind-Value="formulario.Destacado" />
+                                        <span>
+                                            <strong>Mostrar en el carrusel de inicio</strong>
+                                            <small>Aparece en «Maravillas de Boyacá» de la página principal.</small>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            @if (errorGuardar is not null)
+                            {
+                                <p class="gs-error gs-error-general">
+                                    <i class="ph ph-warning-circle" aria-hidden="true"></i> @errorGuardar
+                                </p>
+                            }
+
+                            <footer class="gs-modal-footer">
+                                <button type="button" class="gs-btn gs-btn-texto" @onclick="CerrarFormulario" disabled="@(guardando || subiendoImagen)">
+                                    Cancelar
+                                </button>
+                                <button type="submit" class="gs-btn gs-btn-primario" disabled="@(guardando || subiendoImagen)">
+                                    @if (guardando)
+                                    {
+                                        <span class="gs-spinner pequeno"></span>
+                                        <span>Guardando…</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="ph ph-floppy-disk" aria-hidden="true"></i>
+                                        <span>@(idEditando is null ? "Crear sitio" : "Guardar cambios")</span>
+                                    }
+                                </button>
+                            </footer>
+                        </EditForm>
+                    </div>
+                </div>
+            }
+
+            @* ═══════ MODAL: CONFIRMAR OCULTAR ═══════ *@
+            @if (sitioPorOcultar is not null)
+            {
+                <div class="gs-modal-fondo" @onclick="CancelarOcultar">
+                    <div class="gs-modal gs-modal-pequeno" role="alertdialog" aria-modal="true" aria-labelledby="gs-conf-titulo" @onclick:stopPropagation>
+                        <h2 id="gs-conf-titulo">¿Ocultar «@sitioPorOcultar.Nombre»?</h2>
+                        <p>
+                            Los turistas dejarán de verlo en la página principal y en las búsquedas.
+                            No se borra: puedes volver a publicarlo cuando quieras.
+                        </p>
+                        <footer class="gs-modal-footer">
+                            <button type="button" class="gs-btn gs-btn-texto" @onclick="CancelarOcultar">Cancelar</button>
+                            <button type="button" class="gs-btn gs-btn-peligro" @onclick="ConfirmarOcultar">
+                                <i class="ph ph-eye-slash" aria-hidden="true"></i> Ocultar
+                            </button>
+                        </footer>
+                    </div>
+                </div>
+            }
+        </div>
+    </Authorized>
+
+    <NotAuthorized>
+        <div class="gs-sin-acceso">
+            <i class="ph ph-lock-key" aria-hidden="true"></i>
+            <h2>Acceso restringido</h2>
+            <p>Esta sección es para administradores municipales y generales.</p>
+            <a href="/login" class="gs-btn gs-btn-primario">Iniciar sesión</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    // ════════════════════════════════════════════════
+    // 1. CONSTANTES
+    // ════════════════════════════════════════════════
+    private const long TamanoMaximoImagen = 5 * 1024 * 1024;
+    private static readonly string[] ExtensionesPermitidas = { ".jpg", ".jpeg", ".png", ".webp" };
+
+    // ════════════════════════════════════════════════
+    // 2. DATOS
+    // ════════════════════════════════════════════════
+    private PanelSitiosDto? panel;
+    private List<CategoriaDto> categorias = new();
+    private List<MunicipioListadoDto> municipios = new();
+    private bool cargando = true;
+    private string? errorCarga;
+
+    // ════════════════════════════════════════════════
+    // 3. FILTROS
+    // ════════════════════════════════════════════════
+    private string textoFiltro = "";
+    private string filtroEstado = "todos";
+    private int filtroMunicipio;
+
+    // ════════════════════════════════════════════════
+    // 4. FORMULARIO
+    // ════════════════════════════════════════════════
+    private bool formularioAbierto;
+    private int? idEditando;
+    private SitioTuristicoFormulario formulario = new();
+    private string nombreMunicipioFormulario = "";
+    private bool guardando;
+    private string? errorGuardar;
+    private bool subiendoImagen;
+    private string? errorImagen;
+
+    // ════════════════════════════════════════════════
+    // 5. ACCIONES RÁPIDAS Y AVISOS
+    // ════════════════════════════════════════════════
+    private SitioTuristicoDto? sitioPorOcultar;
+    private int? procesandoId;
+    private string? aviso;
+    private bool avisoEsError;
+
+    // ════════════════════════════════════════════════
+    // 6. PROPIEDADES CALCULADAS
+    // ════════════════════════════════════════════════
+    private bool PuedeCrear =>
+        panel is not null && (panel.EsAdminGeneral || panel.IdMunicipioAsignado.HasValue);
+
+    private string UrlPanel =>
+        panel?.EsAdminGeneral == true ? "/admin/dashboard" : "/municipio/dashboard";
+
+    private string TextoAmbito => panel switch
+    {
+        null => "Cargando…",
+        { EsAdminGeneral: true } => "Todos los municipios de Boyacá",
+        { NombreMunicipioAsignado: not null } p => $"Municipio de {p.NombreMunicipioAsignado}",
+        _ => "Sin municipio asignado"
+    };
+
+    private int TotalSitios => panel?.Sitios.Count ?? 0;
+    private int TotalPublicados => panel?.Sitios.Count(s => s.Activo) ?? 0;
+    private int TotalDestacados => panel?.Sitios.Count(s => s.Activo && s.Destacado) ?? 0;
+
+    private List<(int Id, string Nombre)> MunicipiosConSitios =>
+        panel?.Sitios
+            .Select(s => (Id: s.IdMunicipio, Nombre: s.NombreMunicipio))
+            .Distinct()
+            .OrderBy(m => m.Nombre)
+            .ToList()
+        ?? new();
+
+    private List<SitioTuristicoDto> SitiosVisibles
+    {
+        get
+        {
+            if (panel is null) return new();
+
+            IEnumerable<SitioTuristicoDto> consulta = panel.Sitios;
+
+            if (!string.IsNullOrWhiteSpace(textoFiltro))
+                consulta = consulta.Where(s => s.Nombre.Contains(textoFiltro.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            consulta = filtroEstado switch
+            {
+                "publicados" => consulta.Where(s => s.Activo),
+                "ocultos" => consulta.Where(s => !s.Activo),
+                "destacados" => consulta.Where(s => s.Activo && s.Destacado),
+                _ => consulta
+            };
+
+            if (filtroMunicipio > 0)
+                consulta = consulta.Where(s => s.IdMunicipio == filtroMunicipio);
+
+            return consulta.ToList();
+        }
+    }
+
+    private string Imagen(string? url) =>
+        string.IsNullOrWhiteSpace(url) ? ApiConfig.ImagenPorDefecto : Api.Url(url);
+
+    private static SitioTuristicoFormulario AFormulario(SitioTuristicoDto sitio) => new()
+    {
+        Nombre = sitio.Nombre,
+        Descripcion = sitio.Descripcion,
+        ImagenUrl = sitio.ImagenUrl,
+        IdMunicipio = sitio.IdMunicipio,
+        IdCategoria = sitio.IdCategoria,
+        Altitud = sitio.Altitud,
+        Destacado = sitio.Destacado
+    };
+
+    // ════════════════════════════════════════════════
+    // 7. CARGA
+    // ════════════════════════════════════════════════
+    protected override async Task OnInitializedAsync() => await CargarTodo();
+
+    private async Task CargarTodo()
+    {
+        cargando = true;
+        errorCarga = null;
+
+        var panelTask = SitioService.ObtenerPanelAsync();
+        var categoriasTask = SitioService.ListarCategoriasAsync();
+        await Task.WhenAll(panelTask, categoriasTask);
+
+        (panel, errorCarga) = panelTask.Result;
+        categorias = categoriasTask.Result;
+
+        if (panel?.EsAdminGeneral == true && municipios.Count == 0)
+            municipios = await MunicipioService.ListarParaMapaAsync();
+
+        cargando = false;
+    }
+
+    private async Task RecargarSitios()
+    {
+        var (nuevoPanel, error) = await SitioService.ObtenerPanelAsync();
+        if (nuevoPanel is not null)
+            panel = nuevoPanel;
+        else
+            MostrarAviso(error ?? "No se pudo actualizar la lista.", esError: true);
+    }
+
+    // ════════════════════════════════════════════════
+    // 8. FORMULARIO
+    // ════════════════════════════════════════════════
+    private void AbrirNuevo()
+    {
+        if (!PuedeCrear) return;
+
+        idEditando = null;
+        formulario = new SitioTuristicoFormulario
+        {
+            IdMunicipio = panel!.EsAdminGeneral ? filtroMunicipio : panel.IdMunicipioAsignado ?? 0
+        };
+        nombreMunicipioFormulario = panel.NombreMunicipioAsignado ?? "";
+        errorGuardar = null;
+        errorImagen = null;
+        formularioAbierto = true;
+    }
+
+    private void AbrirEdicion(SitioTuristicoDto sitio)
+    {
+        idEditando = sitio.IdSitioTuristico;
+        formulario = AFormulario(sitio);
+        nombreMunicipioFormulario = sitio.NombreMunicipio;
+        errorGuardar = null;
+        errorImagen = null;
+        formularioAbierto = true;
+    }
+
+    private void CerrarFormulario()
+    {
+        if (guardando || subiendoImagen) return;
+        formularioAbierto = false;
+    }
+
+    private async Task Guardar()
+    {
+        guardando = true;
+        errorGuardar = null;
+
+        bool exito;
+        string? error;
+
+        if (idEditando is null)
+        {
+            var resultado = await SitioService.CrearAsync(formulario);
+            (exito, error) = (resultado.Exito, resultado.Error);
+        }
+        else
+        {
+            (exito, error) = await SitioService.EditarAsync(idEditando.Value, formulario);
+        }
+
+        guardando = false;
+
+        if (!exito)
+        {
+            errorGuardar = error;
+            return;
+        }
+
+        var eraNuevo = idEditando is null;
+        formularioAbierto = false;
+        MostrarAviso(eraNuevo
+            ? $"«{formulario.Nombre}» se creó correctamente."
+            : $"«{formulario.Nombre}» se actualizó.");
+
+        await RecargarSitios();
+    }
+
+    private async Task SubirImagen(InputFileChangeEventArgs e)
+    {
+        errorImagen = null;
+        var archivo = e.File;
+        var extension = Path.GetExtension(archivo.Name).ToLowerInvariant();
+
+        if (!ExtensionesPermitidas.Contains(extension))
+        {
+            errorImagen = "Formato no permitido. Usa JPG, PNG o WebP.";
+            return;
+        }
+
+        if (archivo.Size > TamanoMaximoImagen)
+        {
+            errorImagen = "La imagen no puede superar 5 MB.";
+            return;
+        }
+
+        subiendoImagen = true;
+        var (exito, url, error) = await SitioService.SubirImagenAsync(archivo);
+        subiendoImagen = false;
+
+        if (exito && !string.IsNullOrWhiteSpace(url))
+            formulario.ImagenUrl = url;
+        else
+            errorImagen = error ?? "No se pudo subir la imagen.";
+    }
+
+    private void QuitarImagen() => formulario.ImagenUrl = null;
+
+    // ════════════════════════════════════════════════
+    // 9. ACCIONES RÁPIDAS DESDE LA TARJETA
+    // ════════════════════════════════════════════════
+    private async Task AlternarDestacado(SitioTuristicoDto sitio)
+    {
+        procesandoId = sitio.IdSitioTuristico;
+
+        var datos = AFormulario(sitio);
+        datos.Destacado = !sitio.Destacado;
+
+        var (exito, error) = await SitioService.EditarAsync(sitio.IdSitioTuristico, datos);
+        procesandoId = null;
+
+        if (!exito)
+        {
+            MostrarAviso(error ?? "No se pudo cambiar.", esError: true);
+            return;
+        }
+
+        MostrarAviso(datos.Destacado
+            ? $"«{sitio.Nombre}» ahora aparece en el carrusel de inicio."
+            : $"«{sitio.Nombre}» salió del carrusel de inicio.");
+        await RecargarSitios();
+    }
+
+    private void PedirConfirmacionOcultar(SitioTuristicoDto sitio) => sitioPorOcultar = sitio;
+
+    private void CancelarOcultar() => sitioPorOcultar = null;
+
+    private async Task ConfirmarOcultar()
+    {
+        if (sitioPorOcultar is null) return;
+        var sitio = sitioPorOcultar;
+        sitioPorOcultar = null;
+        await CambiarEstado(sitio, activo: false);
+    }
+
+    private async Task CambiarEstado(SitioTuristicoDto sitio, bool activo)
+    {
+        procesandoId = sitio.IdSitioTuristico;
+        var (exito, error) = await SitioService.CambiarEstadoAsync(sitio.IdSitioTuristico, activo);
+        procesandoId = null;
+
+        if (!exito)
+        {
+            MostrarAviso(error ?? "No se pudo cambiar el estado.", esError: true);
+            return;
+        }
+
+        MostrarAviso(activo
+            ? $"«{sitio.Nombre}» vuelve a estar publicado."
+            : $"«{sitio.Nombre}» quedó oculto para los turistas.");
+        await RecargarSitios();
+    }
+
+    // ════════════════════════════════════════════════
+    // 10. AVISOS TEMPORALES
+    // ════════════════════════════════════════════════
+    private void MostrarAviso(string texto, bool esError = false)
+    {
+        aviso = texto;
+        avisoEsError = esError;
+        _ = OcultarAvisoLuego(texto);
+    }
+
+    private async Task OcultarAvisoLuego(string texto)
+    {
+        await Task.Delay(4500);
+        if (aviso == texto)
+        {
+            aviso = null;
+            StateHasChanged();
+        }
+    }
+}

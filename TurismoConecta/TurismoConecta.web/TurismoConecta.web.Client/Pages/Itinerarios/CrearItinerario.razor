@@ -16,7 +16,7 @@
 
 <div class="itinerario-page">
 
-    @* PANTALLA DE ESPERA INMERSIVA *@
+    
     @if (cargandoInicial || guardando)
     {
         <div class="pantalla-espera-inmersiva">
@@ -754,11 +754,11 @@
     private async Task Volver()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.IsInRole("AdminGeneral"))
+        if (authState.User.IsInRole(Roles.AdminGeneral))
             Nav.NavigateTo("/admin/dashboard");
-        else if (authState.User.IsInRole("AdminMunicipio"))
+        else if (authState.User.IsInRole(Roles.AdminMunicipio))
             Nav.NavigateTo("/municipio/dashboard");
-        else if (authState.User.IsInRole("AdminComercio"))
+        else if (authState.User.IsInRole(Roles.AdminEstablecimiento))
             Nav.NavigateTo("/comercio/dashboard");
         else
             Nav.NavigateTo("/itinerarios");

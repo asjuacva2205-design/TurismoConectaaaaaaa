@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="Pages/Establecimientos/CrearEstablecimiento.razor.css" />
 </HeadContent>
 
-<AuthorizeView Roles="AdminComercio,AdminGeneral,AdminPrincipal">
+<AuthorizeView Roles="@Roles.GeneralOEstablecimiento">
     <Authorized Context="authContext">
         <div class="form-negocio-page">
             <header class="form-negocio-topbar">
@@ -83,12 +83,13 @@
                             <div class="form-grupo">
                                 <label>Categoría *</label>
                                 <select class="input-editorial" @bind="dto.IdCategoria">
-                                    <option value="1">Hospedaje & Hotelería</option>
-                                    <option value="2">Gastronomía & Cafés</option>
-                                    <option value="3">Ecoturismo, Parques & Aventura</option>
-                                    <option value="4">Artesanías & Cultura Local</option>
-                                    <option value="5">Comercio Local / Otros</option>
+                                    <option value="0">-- Selecciona la categoría --</option>
+                                    @foreach (var c in categorias)
+                                    {
+                                        <option value="@c.IdCategoria">@c.Nombre</option>
+                                    }
                                 </select>
+                                <ValidationMessage For="() => dto.IdCategoria" class="val-error" />
                             </div>
                         </div>
 
@@ -96,6 +97,15 @@
                             <label>Descripción del Negocio</label>
                             <InputTextArea @bind-Value="dto.Descripcion" class="textarea-editorial" rows="3"
                                            placeholder="Describe tu propuesta, especialidades, platos típicos o comodidades para los viajeros..." />
+                        </div>
+
+                        @* ◆ CAMBIO 1: mapa para marcar la ubicación (llena dto.Latitud y dto.Longitud) *@
+                        <div class="form-grupo">
+                            <label>Ubicación en el mapa</label>
+                            <SelectorUbicacion @bind-Latitud="dto.Latitud"
+                                               @bind-Longitud="dto.Longitud"
+                                               CentroLatitud="MunicipioElegido?.Latitud"
+                                               CentroLongitud="MunicipioElegido?.Longitud" />
                         </div>
                     </div>
 
@@ -186,10 +196,15 @@
 @code {
     private FormNegocioDto dto = new();
     private List<MunicipioListadoDto> listaMunicipios = new();
+    private List<CategoriaDto> categorias = new();
     private bool guardando = false;
     private bool subiendoFoto = false;
     private string? mensajeError;
     private string urlFotoManual = "";
+
+    // ◆ CAMBIO 2: el municipio elegido en el <select>, para centrar el mapa en él
+    private MunicipioListadoDto? MunicipioElegido =>
+        listaMunicipios.FirstOrDefault(m => m.IdMunicipio == dto.IdMunicipio);
 
     protected override async Task OnInitializedAsync()
     {
@@ -199,6 +214,9 @@
         {
             listaMunicipios = resultadoMun.Items;
         }
+
+        // Cargamos las categorías reales desde la API (solo las que aplican a negocios)
+        categorias = await NegocioService.ListarCategoriasAsync();
     }
 
     private async Task OnSubirFoto(InputFileChangeEventArgs e)
@@ -249,7 +267,7 @@
         if (exito)
         {
             var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-            if (auth.User.IsInRole("AdminGeneral") || auth.User.IsInRole("AdminPrincipal"))
+            if (auth.User.IsInRole(Roles.AdminGeneral))
                 Nav.NavigateTo("/admin/dashboard");
             else
                 Nav.NavigateTo("/comercio/dashboard");
@@ -264,7 +282,7 @@
     private async Task Cancelar()
     {
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-        if (auth.User.IsInRole("AdminGeneral") || auth.User.IsInRole("AdminPrincipal"))
+        if (auth.User.IsInRole(Roles.AdminGeneral))
             Nav.NavigateTo("/admin/dashboard");
         else
             Nav.NavigateTo("/comercio/dashboard");

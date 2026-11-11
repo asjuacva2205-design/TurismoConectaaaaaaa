@@ -552,3 +552,59 @@ h1:focus {
 .btn-cerrar-sesion svg {
     stroke: currentColor !important;
 }
+
+/* ---------- POPUPS DEL MAPA (Leaflet) ---------- */
+.popup-municipio {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 170px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+    .popup-municipio strong {
+        font-size: 0.95rem;
+        color: #213b31;
+    }
+
+.popup-subtitulo {
+    font-size: 0.78rem;
+    color: #555e52;
+}
+
+.popup-municipio button {
+    margin-top: 4px;
+    background: #213b31;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+    .popup-municipio button:hover {
+        background: #bc3e29;
+    }
+
+/* Enlace "Ver municipio →" del popup (reemplaza al botón) */
+.leaflet-popup-content .popup-municipio a.popup-ir {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #213b31;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.2s ease;
+}
+
+    .leaflet-popup-content .popup-municipio a.popup-ir:hover {
+        background: #bc3e29;
+        color: #fff;
+    }

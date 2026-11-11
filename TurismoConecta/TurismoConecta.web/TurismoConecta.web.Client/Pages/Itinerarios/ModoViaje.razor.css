@@ -1,0 +1,235 @@
+.pagina-viaje {
+--verde: #1B3320;
+--verde-medio: #2F5D50;
+--dorado: #D9A441;
+--terracota: #B5442E;
+--crema: #FAF6EE;
+--tinta: #1C2B24;
+--tinta-suave: #4B5A52;
+--blanco: #FFFFFF;
+--radio: 14px;
+--sombra: 0 10px 30px rgba(28, 43, 36, 0.10);
+
+min-height: 100vh;
+background: var(--crema);
+color: var(--tinta);
+font-family: 'Montserrat', sans-serif;
+display: flex;
+flex-direction: column;
+}
+
+/* ── Cabecera ── */
+.viaje-header {
+display: flex;
+align-items: center;
+gap: 1rem;
+flex-wrap: wrap;
+padding: .8rem 1.4rem;
+background: var(--verde);
+color: var(--crema);
+}
+
+.viaje-volver {
+color: var(--dorado);
+text-decoration: none;
+font-weight: 600;
+font-size: .9rem;
+}
+
+.viaje-titulo {
+flex: 1;
+margin: 0;
+font-family: 'Cormorant Garamond', serif;
+font-size: 1.5rem;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+
+.viaje-acciones {
+display: flex;
+gap: .6rem;
+flex-wrap: wrap;
+}
+
+.viaje-btn {
+background: var(--dorado);
+color: var(--verde);
+border: none;
+padding: .5rem 1rem;
+border-radius: 999px;
+font-weight: 700;
+font-size: .82rem;
+cursor: pointer;
+text-decoration: none;
+display: inline-block;
+}
+
+.viaje-btn-sec {
+background: transparent;
+color: var(--crema);
+border: 1px solid rgba(250, 246, 238, .5);
+}
+
+.viaje-btn:disabled {
+opacity: .5;
+cursor: not-allowed;
+}
+
+/* ── Estados ── */
+.viaje-estado {
+padding: 2.5rem 1.5rem;
+text-align: center;
+color: var(--tinta-suave);
+}
+
+.viaje-error {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: .8rem;
+}
+
+.viaje-error .viaje-btn-sec {
+color: var(--verde);
+border-color: var(--verde);
+}
+
+/* ── Mapa ── */
+.viaje-mapa-wrap {
+position: relative;
+}
+
+.mapa-viaje {
+width: 100%;
+height: 62vh;
+min-height: 360px;
+}
+
+.viaje-hud {
+position: absolute;
+left: 12px;
+bottom: 12px;
+max-width: calc(100% - 90px);
+z-index: 800;
+display: flex;
+gap: .5rem;
+flex-wrap: wrap;
+}
+
+.viaje-chip {
+background: rgba(27, 51, 32, .92);
+color: var(--crema);
+padding: .35rem .8rem;
+border-radius: 999px;
+font-size: .78rem;
+font-weight: 600;
+box-shadow: var(--sombra);
+}
+
+.chip-sim { background: var(--terracota); }
+.chip-ruta { background: var(--blanco); color: var(--verde); }
+
+/* Elementos creados por Leaflet (JS): necesitan ::deep porque Blazor no los conoce */
+.viaje-mapa-wrap ::deep .parada-numero-icono span {
+display: flex;
+align-items: center;
+justify-content: center;
+width: 28px;
+height: 28px;
+border-radius: 50%;
+background: var(--terracota);
+color: #fff;
+font-weight: 700;
+font-size: .8rem;
+border: 2px solid #fff;
+box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+}
+
+.viaje-mapa-wrap ::deep .usuario-punto-vivo span {
+display: block;
+width: 16px;
+height: 16px;
+border-radius: 50%;
+background: #1E88E5;
+border: 3px solid #fff;
+box-shadow: 0 0 0 4px rgba(30, 136, 229, .3);
+animation: pulso-usuario 1.6s infinite ease-in-out;
+}
+
+@keyframes pulso-usuario {
+0%, 100% { box-shadow: 0 0 0 4px rgba(30, 136, 229, .3); }
+50% { box-shadow: 0 0 0 11px rgba(30, 136, 229, .1); }
+}
+
+/* ── Info bajo el mapa ── */
+.viaje-info {
+display: grid;
+grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+gap: 1.2rem;
+padding: 1.4rem;
+}
+
+.viaje-card {
+background: var(--blanco);
+border-radius: var(--radio);
+padding: 1.2rem 1.4rem;
+box-shadow: var(--sombra);
+}
+
+.viaje-card h2 {
+margin: 0 0 .7rem;
+font-family: 'Cormorant Garamond', serif;
+font-size: 1.3rem;
+}
+
+.viaje-card p {
+margin: 0;
+color: var(--tinta-suave);
+font-size: .92rem;
+line-height: 1.55;
+}
+
+.viaje-card-condor {
+border-left: 4px solid var(--dorado);
+}
+
+.viaje-paradas {
+display: flex;
+flex-wrap: wrap;
+gap: .5rem;
+margin-bottom: .9rem;
+}
+
+.viaje-parada-chip {
+display: inline-flex;
+align-items: center;
+gap: .45rem;
+background: var(--crema);
+border-radius: 999px;
+padding: .25rem .8rem .25rem .3rem;
+font-size: .82rem;
+}
+
+.viaje-parada-num {
+width: 20px;
+height: 20px;
+border-radius: 50%;
+background: var(--terracota);
+color: #fff;
+font-size: .7rem;
+font-weight: 700;
+display: inline-flex;
+align-items: center;
+justify-content: center;
+}
+
+.viaje-link {
+background: none;
+border: none;
+padding: 0;
+color: var(--verde-medio);
+font-weight: 600;
+font-size: .85rem;
+cursor: pointer;
+}

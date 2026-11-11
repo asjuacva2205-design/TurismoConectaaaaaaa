@@ -1,3 +1,6 @@
+using TurismoConecta.web.Client.Constants;
+
+
 namespace TurismoConecta.web.Client.Models
 {
     public class UsuarioAdminItemDto
@@ -50,7 +53,7 @@ namespace TurismoConecta.web.Client.Models
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string? Telefono { get; set; }
-        public string Rol { get; set; } = "Turista";
+        public string Rol { get; set; } = Roles.Usuario;
         public int? MunicipioAsignadoId { get; set; }
     }
 }

@@ -1,0 +1,176 @@
+@page "/usuario/panel"
+@layout EmptyLayout
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using TurismoConecta.web.Client.Pages.Inicio
+@inject ItinerarioApiService ItinerarioApi
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+<PageTitle>Mi panel | TurismoConecta</PageTitle>
+
+<HeadContent>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</HeadContent>
+
+<AuthorizeView Roles="@RolesPermitidos">
+    <Authorized Context="auth">
+        <div class="panel-usuario">
+
+            <header class="panel-topbar">
+                <a href="/" class="panel-logo" title="TurismoConecta">
+                    <img src="images/turismo-conecta-logo.png" alt="Turismo Conecta" />
+                </a>
+                <nav class="panel-nav">
+                    <a href="/municipios">Pueblos</a>
+                    <a href="/itinerarios">Mis itinerarios</a>
+                    <a href="/perfil">Mi perfil</a>
+                </nav>
+                <div class="panel-topbar-der">
+                    <span class="panel-nombre">@(PrimerNombre(auth.User.Identity?.Name))</span>
+                    <button type="button" class="panel-salir" @onclick="CerrarSesion">Salir</button>
+                </div>
+            </header>
+
+            <main class="panel-main">
+
+                <section class="panel-bienvenida">
+                    <span class="panel-eyebrow">Mi panel de viaje</span>
+                    <h1>Hola, <em>@PrimerNombre(auth.User.Identity?.Name)</em></h1>
+                    <p>Elige un itinerario, mira el mejor camino y deja que el Cóndor te vaya contando qué pueblo queda a tu mano derecha o izquierda mientras viajas.</p>
+                    <div class="panel-acciones">
+                        <a class="panel-btn" href="/itinerarios/crear">+ Crear itinerario</a>
+                        <a class="panel-btn panel-btn-sec" href="/municipios">Explorar pueblos</a>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 class="panel-titulo">Mis rutas</h2>
+
+                    @if (cargando)
+                    {
+                        <p class="panel-vacio">Cargando tus itinerarios…</p>
+                    }
+                    else if (errorCarga)
+                    {
+                        <p class="panel-vacio">No pudimos cargar tus itinerarios. Revisa tu conexión e intenta de nuevo.</p>
+                    }
+                    else if (rutas.Count == 0)
+                    {
+                        <div class="panel-vacio">
+                            <p>Todavía no tienes itinerarios guardados.</p>
+                            <a class="panel-btn" href="/itinerarios/crear">Crear mi primer itinerario</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="panel-rutas">
+                            @foreach (var r in rutas)
+                            {
+                                <article class="ruta-card">
+                                    <h3>@r.Datos.Nombre</h3>
+                                    <p class="ruta-meta">
+                                        @r.Datos.CantidadParadas @(r.Datos.CantidadParadas == 1 ? "parada" : "paradas")
+                                        @if (r.Datos.FechaInicio is not null)
+                                        {
+                                            <span> · desde @r.Datos.FechaInicio.Value.ToString("d MMM yyyy")</span>
+                                        }
+                                    </p>
+
+                                    @if (r.Paradas.Count > 0)
+                                    {
+                                        <p class="ruta-camino">@string.Join(" → ", r.Paradas)</p>
+                                    }
+
+                                    <div class="ruta-botones">
+                                        <a class="panel-btn" href="@($"/itinerarios/{r.Datos.IdItinerario}/viaje")">🧭 Iniciar viaje</a>
+                                        <a class="panel-btn panel-btn-sec" href="@($"/itinerarios/{r.Datos.IdItinerario}")">Ver itinerario</a>
+                                    </div>
+                                </article>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <section class="panel-pasos">
+                    <h2 class="panel-titulo">Así funciona el viaje guiado</h2>
+                    <div class="pasos-grid">
+                        <div class="paso"><span>1</span><p>Elige un itinerario y pulsa <strong>Iniciar viaje</strong>.</p></div>
+                        <div class="paso"><span>2</span><p>Ves el mejor camino por carretera y tu ubicación en vivo con el GPS.</p></div>
+                        <div class="paso"><span>3</span><p>El Cóndor te avisa, por voz y en el chat, qué pueblo queda a tu mano derecha o izquierda y qué ofrece.</p></div>
+                        <div class="paso"><span>4</span><p>¿Quieres más detalles? Pregúntale por el pueblo y te responde con la información de la plataforma.</p></div>
+                    </div>
+                </section>
+            </main>
+
+            <CondorChat />
+        </div>
+    </Authorized>
+
+    <NotAuthorized>
+        <div class="panel-no-auth">
+            <h2>Este panel es para viajeros registrados</h2>
+            <p>Inicia sesión para ver tus itinerarios y rutas.</p>
+            <a class="panel-btn" href="/login">Iniciar sesión</a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private const string RolesPermitidos = Roles.Usuario + "," + Roles.AdminGeneral;
+
+    private record TarjetaRuta(ItinerarioListadoDto Datos, List<string> Paradas);
+
+    private List<TarjetaRuta> rutas = new();
+    private bool cargando = true;
+    private bool errorCarga;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var lista = await ItinerarioApi.ListarAsync();
+
+            if (lista is null)
+            {
+                errorCarga = true;
+                return;
+            }
+
+            // Mostramos las 6 más recientes con su camino (Pueblo A → Pueblo B → …).
+            foreach (var it in lista.OrderByDescending(x => x.IdItinerario).Take(6))
+            {
+                var detalle = await ItinerarioApi.ObtenerDetalleAsync(it.IdItinerario);
+                var paradas = detalle?.Paradas
+                    .OrderBy(p => p.DiaNumero).ThenBy(p => p.Orden)
+                    .Select(p => p.NombreMunicipio)
+                    .ToList() ?? new List<string>();
+
+                rutas.Add(new TarjetaRuta(it, paradas));
+            }
+        }
+        catch (Exception)
+        {
+            errorCarga = true;
+        }
+        finally
+        {
+            cargando = false;
+        }
+    }
+
+    private static string PrimerNombre(string? nombreCompleto)
+        => string.IsNullOrWhiteSpace(nombreCompleto) ? "viajero" : nombreCompleto.Split(' ')[0];
+
+    private async Task CerrarSesion()
+    {
+        await JS.InvokeVoidAsync("borrarToken");
+        if (AuthStateProvider is JwtAuthStateProvider jwt)
+        {
+            jwt.NotificarCambioAutenticacion();
+        }
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

@@ -4,34 +4,22 @@ using TurismoConecta.web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped(sp => new HttpClient
-{
-    BaseAddress = new Uri("https://localhost:7078")
+// Dirección de la API: se lee de appsettings.json (del servidor)
+var apiBaseUrl = builder.Configuration["ApiBaseUrl"]
+    ?? throw new InvalidOperationException("Falta 'ApiBaseUrl' en appsettings.json");
+var apiUri = new Uri(apiBaseUrl);
 
-    
-});
-
+builder.Services.AddSingleton(new ApiConfig(apiBaseUrl));
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = apiUri });
 builder.Services.AddTransient<AuthorizationMessageHandler>();
 
-builder.Services.AddHttpClient<MunicipioApiService>(client =>
-{
-    client.BaseAddress = new Uri("https://localhost:7078");
-})
-.AddHttpMessageHandler<AuthorizationMessageHandler>();
+void RegistrarApi<TServicio>() where TServicio : class =>
+    builder.Services.AddHttpClient<TServicio>(c => c.BaseAddress = apiUri)
+                    .AddHttpMessageHandler<AuthorizationMessageHandler>();
 
-builder.Services.AddHttpClient<NegocioApiService>(client =>
-{
-    client.BaseAddress = new Uri("https://localhost:7078");
-})
-.AddHttpMessageHandler<AuthorizationMessageHandler>();
-
-builder.Services.AddHttpClient<UsuarioApiService>(client =>
-{
-    client.BaseAddress = new Uri("https://localhost:7078");
-})
-.AddHttpMessageHandler<AuthorizationMessageHandler>();
-
-
+RegistrarApi<MunicipioApiService>();
+RegistrarApi<NegocioApiService>();
+RegistrarApi<UsuarioApiService>();
 
 
 // Add services to the container.

@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using TurismoConecta.api.Constants;
 using TurismoConecta.api.DTOs.Etiquetas;
 using TurismoConecta.api.Services.Etiquetas;
+
 
 namespace TurismoConecta.api.Controllers;
 [ApiController]
@@ -21,7 +23,7 @@ public class MunicipioEtiquetasController : ControllerBase
     }
 
     [HttpPut]
-    [Authorize(Roles = "AdminMunicipio")]
+    [Authorize(Roles = Roles.AdminMunicipio)]
     public async Task<IActionResult> Asignar(int idMunicipio, [FromBody] AsignarEtiquetasDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);

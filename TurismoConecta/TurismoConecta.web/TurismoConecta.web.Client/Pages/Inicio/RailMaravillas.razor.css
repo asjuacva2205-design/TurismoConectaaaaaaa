@@ -1,0 +1,261 @@
+.rail-escena {
+    position: relative;
+    height: 250vh; /* 1 pantalla pegada + 1,5 de recorrido (≈ 5 cartas con el scroll) */
+    background: #0d1610;
+    color: #F3EEE2;
+}
+
+.rail-sticky {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 44px 24px 28px;
+}
+
+.rail-fondo {
+    position: absolute;
+    inset: -60px;
+    background-size: cover;
+    background-position: center;
+    filter: blur(40px) saturate(1.2);
+    opacity: .45;
+    transition: background-image .6s ease;
+}
+
+.rail-velo {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(13, 22, 16, .3) 0%, rgba(13, 22, 16, .92) 75%);
+}
+
+.rail-cabecera,
+.rail-escenario,
+.rail-pie {
+    position: relative;
+    z-index: 1;
+}
+
+.rail-cabecera {
+    text-align: center;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.rail-eyebrow {
+    color: #E0A44A;
+    font-size: .75rem;
+    font-weight: 600;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.rail-cabecera h2 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 600;
+    margin: .4rem 0 .6rem;
+}
+
+/* ---------- Cartas ---------- */
+.rail-escenario {
+    perspective: 1400px;
+    transform-style: preserve-3d;
+}
+
+.rail-card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    translate: -50% -50%;
+    height: min(50vh, 440px);
+    aspect-ratio: 3 / 4;
+    padding: 0;
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #1b2a1f;
+    cursor: pointer;
+    box-shadow: 0 24px 50px rgba(0, 0, 0, .55);
+    filter: brightness(.65);
+    transition: transform .7s cubic-bezier(.22, .8, .24, 1), opacity .5s ease, filter .5s ease;
+}
+
+    .rail-card:hover {
+        filter: brightness(.9);
+    }
+
+    .rail-card.activa {
+        filter: none;
+        cursor: zoom-in;
+    }
+
+    .rail-card:focus-visible {
+        outline: 3px solid #E0A44A;
+        outline-offset: 4px;
+    }
+
+    .rail-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        user-select: none;
+    }
+
+.rail-card-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(13, 22, 16, .7);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 600;
+}
+
+.rail-vacio {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #CFC8B6;
+}
+
+/* ---------- Pie: leyenda, botones y controles ---------- */
+.rail-pie {
+    display: grid;
+    justify-items: center;
+    gap: 14px;
+    text-align: center;
+}
+
+.rail-leyenda h3 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.rail-leyenda p {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 14px;
+    margin: .3rem 0 0;
+    color: #CFC8B6;
+    font-size: .88rem;
+}
+
+/* El clima puede ser una frase larga: una sola línea con "…" (el texto completo sale al pasar el mouse) */
+.rail-clima {
+    max-width: 340px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rail-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.rail-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    border-radius: 999px;
+    border: 1px solid #E0A44A;
+    background: #E0A44A;
+    color: #16301C;
+    font-weight: 700;
+    font-size: .85rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform .2s ease;
+}
+
+    .rail-btn:hover {
+        transform: translateY(-2px);
+    }
+
+.rail-btn-borde {
+    background: transparent;
+    color: #F3EEE2;
+    border-color: rgba(255, 255, 255, .35);
+}
+
+.rail-controles {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.rail-flecha {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .3);
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+    transition: border-color .2s ease;
+}
+
+    .rail-flecha:hover {
+        border-color: #E0A44A;
+    }
+
+.rail-progreso {
+    width: min(220px, 40vw);
+    height: 3px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .2);
+    overflow: hidden;
+}
+
+    .rail-progreso span {
+        display: block;
+        height: 100%;
+        background: #E0A44A;
+        transition: width .5s ease;
+    }
+
+.rail-pista {
+    color: #9B9483;
+    font-size: .75rem;
+    letter-spacing: 1px;
+}
+
+@media (max-width: 700px) {
+    .rail-escena {
+        height: 220vh;
+    }
+
+    .rail-card {
+        height: 40vh;
+    }
+
+    .rail-leyenda h3 {
+        font-size: 1.6rem;
+    }
+
+    .rail-clima {
+        max-width: 220px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rail-card,
+    .rail-fondo,
+    .rail-progreso span {
+        transition: none;
+    }
+}

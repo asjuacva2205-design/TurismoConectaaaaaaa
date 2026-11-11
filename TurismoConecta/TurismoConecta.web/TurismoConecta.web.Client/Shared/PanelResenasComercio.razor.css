@@ -1,0 +1,181 @@
+/* Mismo estilo que PanelModeracionResenas.razor.css (el CSS aislado no se comparte entre componentes) */
+
+.panel-resenas-nota {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 1rem;
+    font-size: 0.85rem;
+    color: #6b6257;
+}
+
+.panel-resenas-nota strong { color: #9E5B3D; }
+
+.spinner-panel {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #E4DFD5;
+    border-top-color: #213B31;
+    border-radius: 50%;
+    animation: girar-panel 0.8s linear infinite;
+}
+
+@keyframes girar-panel { to { transform: rotate(360deg); } }
+
+.panel-resenas-vacio {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 1.25rem;
+    border: 1px dashed #E4DFD5;
+    border-radius: 10px;
+    color: #6b6257;
+}
+
+.panel-resenas-vacio i { font-size: 1.6rem; color: #9E5B3D; }
+.panel-resenas-vacio p { margin: 0; font-size: 0.9rem; }
+
+.panel-resenas-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.75rem;
+    max-height: 560px;
+    overflow-y: auto;
+}
+
+.panel-resena {
+    padding: 1rem 1.1rem;
+    border: 1px solid #EAE6DF;
+    border-left: 4px solid #EAE6DF;
+    border-radius: 10px;
+    background: #FFFFFF;
+}
+
+.panel-resena.pendiente { border-left-color: #C9A227; }
+.panel-resena.retenida { border-left-color: #A33A2B; background: #FDF6F4; }
+
+.panel-resena-cabecera {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.panel-resena-cabecera strong {
+    display: block;
+    font-size: 0.92rem;
+    color: #1f1409;
+}
+
+.panel-resena-meta { font-size: 0.75rem; color: #6b6257; }
+
+.panel-resena-comentario {
+    margin: 0.6rem 0 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    color: #2d2a26;
+    overflow-wrap: anywhere;
+}
+
+.panel-resena-respuesta {
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.8rem;
+    border-left: 3px solid #9E5B3D;
+    background: #FBF9F5;
+    border-radius: 0 6px 6px 0;
+}
+
+.panel-resena-respuesta span {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #9E5B3D;
+}
+
+.panel-resena-respuesta p { margin: 4px 0 0; font-size: 0.88rem; }
+
+.chip-retenida {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 0.6rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #F6E1DC;
+    color: #A33A2B;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.panel-resena-texto {
+    width: 100%;
+    margin-top: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+    font-size: 0.88rem;
+    border: 1px solid #E4DFD5;
+    border-radius: 8px;
+    resize: vertical;
+}
+
+.panel-resena-texto:focus { outline: none; border-color: #213B31; }
+
+.panel-resena-error {
+    margin: 0.5rem 0 0;
+    font-size: 0.82rem;
+    color: #A33A2B;
+}
+
+.panel-resena-acciones {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 0.75rem;
+}
+
+.panel-resena-pregunta { font-size: 0.82rem; color: #A33A2B; margin-right: auto; }
+
+/* ── Botones ── */
+.btn-panel-primario,
+.btn-panel-secundario,
+.btn-panel-peligro,
+.btn-panel-enlace {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.btn-panel-primario { background: #213B31; color: #FFFFFF; border: 1px solid #213B31; }
+.btn-panel-secundario { background: none; color: #6b6257; border: 1px solid #E4DFD5; }
+.btn-panel-peligro { background: #A33A2B; color: #FFFFFF; border: 1px solid #A33A2B; }
+
+.btn-panel-enlace {
+    margin-top: 0.6rem;
+    padding: 4px 0;
+    background: none;
+    border: none;
+    color: #213B31;
+}
+
+.panel-resena-acciones .btn-panel-enlace { margin-top: 0; padding: 6px 4px; }
+.btn-panel-enlace.peligro { color: #A33A2B; }
+.btn-panel-enlace:hover:not(:disabled) { text-decoration: underline; }
+
+.btn-panel-primario:disabled,
+.btn-panel-secundario:disabled,
+.btn-panel-peligro:disabled,
+.btn-panel-enlace:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}

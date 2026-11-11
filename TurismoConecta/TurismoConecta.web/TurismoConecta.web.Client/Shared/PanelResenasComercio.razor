@@ -1,0 +1,155 @@
+@implements IDisposable
+@inject ReseñaApiService ReseñaService
+@inject NotificacionTiempoRealService Notif
+
+@* HU-29: el comerciante lee las reseñas de sus negocios y responde una vez a cada una *@
+<div class="panel-resenas">
+    @if (cargando)
+    {
+        <p class="panel-resenas-nota"><span class="spinner-panel"></span> Cargando reseñas...</p>
+    }
+    else if (reseñas.Count == 0)
+    {
+        <div class="panel-resenas-vacio">
+            <i class="ph ph-chat-circle-dots" aria-hidden="true"></i>
+            <p>Tus establecimientos aún no tienen reseñas. Aparecerán aquí cuando los turistas opinen.</p>
+        </div>
+    }
+    else
+    {
+        <p class="panel-resenas-nota">
+            @if (SinResponder > 0)
+            {
+                <strong>@SinResponder sin responder</strong>
+                <span> · </span>
+            }
+            Promedio @reseñas.Average(r => r.Calificacion).ToString("0.0") de 5 en @reseñas.Count reseña@(reseñas.Count != 1 ? "s" : "")
+        </p>
+
+        <ul class="panel-resenas-lista">
+            @foreach (var reseña in reseñas)
+            {
+                var r = reseña;
+                <li class="panel-resena @(r.Respuesta is null ? "pendiente" : "")" @key="r.IdReseña">
+                    <div class="panel-resena-cabecera">
+                        <div>
+                            <strong>@r.NombreLugar</strong>
+                            <span class="panel-resena-meta">@r.NombreUsuario · @r.FechaCreacion.ToString("dd MMM yyyy")</span>
+                        </div>
+                        <EstrellasCalificacion Valor="r.Calificacion" />
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(r.Comentario))
+                    {
+                        <p class="panel-resena-comentario">@r.Comentario</p>
+                    }
+
+                    @if (r.Respuesta is not null)
+                    {
+                        <div class="panel-resena-respuesta">
+                            <span><i class="ph ph-arrow-bend-down-right" aria-hidden="true"></i> Tu respuesta</span>
+                            <p>@r.Respuesta</p>
+                        </div>
+                    }
+                    else if (respondiendo == r.IdReseña)
+                    {
+                        <textarea class="panel-resena-texto" rows="3" maxlength="1000"
+                                  placeholder="Agradece y responde con amabilidad: tu respuesta será pública."
+                                  @bind="textoRespuesta" @bind:event="oninput"></textarea>
+
+                        @if (!string.IsNullOrEmpty(error))
+                        {
+                            <p class="panel-resena-error">@error</p>
+                        }
+
+                        <div class="panel-resena-acciones">
+                            <button type="button" class="btn-panel-secundario" @onclick="CancelarRespuesta" disabled="@enviando">Cancelar</button>
+                            <button type="button" class="btn-panel-primario" @onclick="() => Responder(r)"
+                                    disabled="@(enviando || string.IsNullOrWhiteSpace(textoRespuesta))">
+                                @(enviando ? "Publicando..." : "Publicar respuesta")
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn-panel-enlace" @onclick="() => AbrirRespuesta(r.IdReseña)">
+                            <i class="ph ph-chat-circle-text" aria-hidden="true"></i> Responder
+                        </button>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private List<ReseñaDto> reseñas = new();
+    private bool cargando = true;
+
+    private int? respondiendo;        // id de la reseña con el formulario abierto
+    private string? textoRespuesta;
+    private bool enviando;
+    private string? error;
+
+    private int SinResponder => reseñas.Count(r => r.Respuesta is null);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Si llega una reseña nueva mientras el panel está abierto, se recarga sola
+        Notif.NotificacionRecibida += AlRecibirNotificacion;
+        await CargarAsync();
+    }
+
+    private async Task CargarAsync()
+    {
+        reseñas = await ReseñaService.ListarDeMisNegociosAsync();
+        cargando = false;
+    }
+
+    private void AbrirRespuesta(int idReseña)
+    {
+        respondiendo = idReseña;
+        textoRespuesta = null;
+        error = null;
+    }
+
+    private void CancelarRespuesta()
+    {
+        respondiendo = null;
+        textoRespuesta = null;
+        error = null;
+    }
+
+    private async Task Responder(ReseñaDto reseña)
+    {
+        error = null;
+        enviando = true;
+        var texto = textoRespuesta!.Trim();
+        var (exito, mensaje) = await ReseñaService.ResponderAsync(reseña.IdReseña, texto);
+        enviando = false;
+
+        if (!exito)
+        {
+            error = mensaje;
+            return;
+        }
+
+        reseña.Respuesta = texto;
+        reseña.FechaRespuesta = DateTime.Now;
+        CancelarRespuesta();
+    }
+
+    private void AlRecibirNotificacion(NotificacionDto notificacion)
+    {
+        if (notificacion.Codigo != CodigosNotificacion.ReseñaNueva) return;
+
+        // SignalR llama desde fuera de Blazor → InvokeAsync devuelve el control al componente
+        _ = InvokeAsync(async () =>
+        {
+            await CargarAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose() => Notif.NotificacionRecibida -= AlRecibirNotificacion;
+}

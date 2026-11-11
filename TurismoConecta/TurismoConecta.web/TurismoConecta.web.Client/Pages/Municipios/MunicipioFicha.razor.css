@@ -1352,3 +1352,308 @@
     .btn-contacto-mapa,
     .btn-booking-oficial { width: 100%; justify-content: center; }
 }
+
+
+
+/* ---------- MIGAS DE PAN (volver a inicio / catálogo) ---------- */
+.nav-migas {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-migas-separador {
+    color: var(--txt-secundario);
+}
+
+.nav-migas-enlace {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--txt-secundario);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+    .nav-migas-enlace:hover {
+        color: var(--txt-principal);
+    }
+
+/* ==========================================================
+   ICONOGRAFÍA EN NEGRO (Phosphor) — Ficha del municipio
+   Regla: silueta negra; sobre fotos oscuras va en un círculo claro.
+   ========================================================== */
+
+/* ── Barra superior ── */
+.nav-back-link,
+.nav-migas-enlace,
+.btn-admin-minimal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+    .nav-back-arrow,
+    .nav-migas-enlace i,
+    .btn-admin-minimal i {
+        color: #000;
+    }
+
+.btn-danger-subtle:hover i {
+    color: #C0392B;
+}
+
+/* Botón "Guardar en itinerario": contorno negro, ícono negro */
+.btn-itinerario-minimal {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    color: #000;
+    border-color: #000;
+}
+
+    .btn-itinerario-minimal:hover,
+    .btn-itinerario-minimal.guardado {
+        background: #F2E6C9;
+        color: #000;
+        border-color: #000;
+    }
+
+/* ── Hero (sobre la foto): ícono negro dentro de un círculo claro ── */
+.icono-clima,
+.pill-icono {
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #F7F1E3;
+    color: #000;
+    vertical-align: middle;
+}
+
+.icono-clima {
+    width: 24px;
+    height: 24px;
+    margin-right: 4px;
+    font-size: 0.85rem;
+}
+
+.pill-experiencia {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pill-icono {
+    width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+}
+
+/* ── Lugares Imperdibles (sitios desde la BD) ── */
+.sitios-ficha-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+}
+
+.sitio-ficha-card {
+    overflow: hidden;
+    background: var(--superficie);
+    border: 1px solid var(--borde-card);
+    border-radius: 14px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+    .sitio-ficha-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+    }
+
+.sitio-ficha-imagen {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+}
+
+    .sitio-ficha-imagen img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.4s ease;
+    }
+
+.sitio-ficha-card:hover .sitio-ficha-imagen img {
+    transform: scale(1.06);
+}
+
+.sitio-ficha-categoria {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(247, 241, 227, 0.95);
+    color: #000;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.sitio-ficha-cuerpo {
+    padding: 14px 16px 16px;
+}
+
+    .sitio-ficha-cuerpo h3 {
+        margin: 0 0 6px;
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.3rem;
+        color: var(--txt-principal);
+    }
+
+.sitio-ficha-dato {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px;
+    font-size: 0.78rem;
+    color: var(--txt-secundario);
+}
+
+.sitio-ficha-desc {
+    margin: 0;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    color: var(--txt-secundario);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.sitio-ficha-dato i,
+.sitio-ficha-categoria i {
+    color: #000;
+}
+
+/* ── Festividades ── */
+.fest-fecha-icono {
+    color: #000;
+}
+
+/* ── Píldoras de categorías de negocios ── */
+.btn-pildora-silueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.silueta-icono {
+    font-size: 1.05rem;
+    color: #000;
+}
+
+.btn-pildora-silueta.activa {
+    background: #F2E6C9;
+    color: #000;
+    border-color: #000;
+}
+
+/* ── Tarjetas de negocios ── */
+.negocio-estrellas,
+.negocio-direccion,
+.enlace-ver-mas {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.negocio-direccion {
+    display: flex;
+}
+
+    .negocio-estrellas i,
+    .negocio-direccion i,
+    .enlace-ver-mas i,
+    .enlace-mapa-discreto i {
+        color: #000;
+    }
+
+.enlace-mapa-discreto {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+/* ── Modal del negocio ── */
+.modal-btn-cerrar-negocio {
+    display: grid;
+    place-items: center;
+    color: #000;
+}
+
+.dato-icono {
+    color: #000;
+}
+
+.btn-contacto-ws,
+.btn-contacto-tel,
+.btn-contacto-mapa,
+.btn-booking-oficial,
+.btn-vincular-itinerario,
+.btn-volver-ficha {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+    /* WhatsApp conserva su verde de marca, pero con texto e ícono negros */
+    .btn-contacto-ws,
+    .btn-contacto-ws:hover {
+        color: #000;
+    }
+
+    .btn-contacto-tel i,
+    .btn-contacto-mapa i,
+    .btn-vincular-itinerario i,
+    .btn-volver-ficha i {
+        color: #000;
+    }
+
+    .btn-vincular-itinerario:hover,
+    .btn-vincular-itinerario.guardado {
+        background: #F2E6C9;
+        color: #000;
+    }
+
+.alerta-itinerario-exito {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+    .alerta-itinerario-exito i {
+        color: #000;
+    }
+
+
+
+.hero-acciones {
+    align-self: flex-start;
+    margin-top: 18px;
+}
+
+.modal-negocio-fav {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+}

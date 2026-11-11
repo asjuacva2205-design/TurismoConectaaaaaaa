@@ -53,23 +53,7 @@ namespace TurismoConecta.web.Client.Services
                     if (rc.Type != "role")
                         claims.Add(new Claim("role", rc.Value));
 
-                    // Mapeo bidireccional de alias de roles
-                    if (string.Equals(rc.Value, "AdminGeneral", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(rc.Value, "AdminPrincipal", StringComparison.OrdinalIgnoreCase))
-                    {
-                        claims.Add(new Claim(ClaimTypes.Role, "AdminGeneral"));
-                        claims.Add(new Claim(ClaimTypes.Role, "AdminPrincipal"));
-                        claims.Add(new Claim("role", "AdminGeneral"));
-                        claims.Add(new Claim("role", "AdminPrincipal"));
-                    }
-                    else if (string.Equals(rc.Value, "AdminComercio", StringComparison.OrdinalIgnoreCase) ||
-                             string.Equals(rc.Value, "AdminEstablecimiento", StringComparison.OrdinalIgnoreCase))
-                    {
-                        claims.Add(new Claim(ClaimTypes.Role, "AdminComercio"));
-                        claims.Add(new Claim(ClaimTypes.Role, "AdminEstablecimiento"));
-                        claims.Add(new Claim("role", "AdminComercio"));
-                        claims.Add(new Claim("role", "AdminEstablecimiento"));
-                    }
+             
                 }
 
                 // Asegurar compatibilidad de Name

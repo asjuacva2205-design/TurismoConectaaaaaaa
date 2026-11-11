@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json;
 using TurismoConecta.web.Client.Models;
 
@@ -95,6 +95,20 @@ namespace TurismoConecta.web.Client.Services
             }
         }
 
+        // 5b. KPIs del dashboard municipal
+        public async Task<NegocioConteoEstadosDto?> ObtenerResumenAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                return await _http.GetFromJsonAsync<NegocioConteoEstadosDto>("api/negocios/resumen", ct);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+
         // 6. Cambiar estado: "Aprobado" o "Rechazado" (AdminMunicipio)
         public async Task<(bool Exito, string? Error)> CambiarEstadoAsync(int id, string nuevoEstado, CancellationToken ct = default)
         {
@@ -143,6 +157,18 @@ namespace TurismoConecta.web.Client.Services
             catch (Exception ex)
             {
                 return (false, null, ex.Message);
+            }
+        }
+
+        public async Task<List<CategoriaDto>> ListarCategoriasAsync(CancellationToken ct = default)
+        {
+            try
+            {
+                return await _http.GetFromJsonAsync<List<CategoriaDto>>("api/categorias/negocios", ct) ?? new();
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                return new();
             }
         }
     }

@@ -1,10 +1,11 @@
-﻿@page "/perfil"
+@page "/perfil"
 @layout EmptyLayout
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @using TurismoConecta.web.Client.Models
 @inject HttpClient Http
 @inject IJSRuntime JS
 @inject NavigationManager NavManager
+@inject ApiConfig Api
 
 <div class="profile-container">
     <div class="premium-card">
@@ -133,14 +134,17 @@
                         <span>@mensajeError</span>
                     </div>
                 }
+
+
+                <MisFavoritos />
+
             </div>
         }
     </div>
 </div>
 
 @code {
-    // URL base de tu API Backend 
-    private const string ApiBase = "https://localhost:7078";
+    
 
     private PerfilResponse? perfilActual;
     private ActualizarPerfilRequest modeloFormulario = new();
@@ -176,7 +180,7 @@
             modeloFormulario.Telefono = perfilActual.Telefono;
             if (!string.IsNullOrEmpty(perfilActual.FotoUrl))
             {
-                fotoPreview = $"{ApiBase}{perfilActual.FotoUrl}";
+                fotoPreview = Api.Url(perfilActual.FotoUrl);
             }
         }
     }

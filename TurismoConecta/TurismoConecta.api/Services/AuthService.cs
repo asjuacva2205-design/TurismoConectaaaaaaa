@@ -7,7 +7,8 @@ using TurismoConecta.api.Data;
 using TurismoConecta.api.DTOs.Auth;
 using TurismoConecta.api.Models;
 using TurismoConecta.api.Services.Interfaces;
- 
+using TurismoConecta.api.Constants;
+using Microsoft.Extensions.Configuration;
 
 namespace TurismoConecta.api.Services;
 
@@ -17,21 +18,23 @@ public class AuthService : IAuthService
     private readonly AppDbContext _db;
     private readonly JwtService _jwt;
     private readonly IEmailService _emailService;
+    private readonly IConfiguration _configuration;
     private readonly PasswordHasher<Usuario> _hasher = new();
 
-    public AuthService(AppDbContext db, JwtService jwt, IEmailService emailService)
+    public AuthService(AppDbContext db, JwtService jwt, IEmailService emailService, IConfiguration configuration)
     {
         _db = db;
         _jwt = jwt;
         _emailService = emailService;
+        _configuration = configuration;
     } 
 
     public async Task<AuthResponseDto> RegistrarAsync(RegisterRequestDto dto)
     {
         bool emailExiste = await _db.Usuarios.AnyAsync(u => u.Email == dto.Email);
-        if (emailExiste) throw new InvalidOperationException("El email ya est· registrado.");
+        if (emailExiste) throw new InvalidOperationException("El email ya est√° registrado.");
 
-        var rolUsuario = await _db.Rols.FirstOrDefaultAsync(r => r.Nombre == "Usuario")
+        var rolUsuario = await _db.Rols.FirstOrDefaultAsync(r => r.Nombre == Roles.Usuario)
             ?? throw new InvalidOperationException("Rol 'Usuario' no encontrado.");
 
         var nuevoUsuario = new Usuario
@@ -81,13 +84,15 @@ public class AuthService : IAuthService
         usuario.PasswordResetExpira = DateTime.UtcNow.AddMinutes(30);
         await _db.SaveChangesAsync();
 
-        var enlace = $"https://localhost:7248/reset-password?email={Uri.EscapeDataString(dto.Email)}&token={token}";
+        var frontendUrl = _configuration["App:FrontendUrl"]?.TrimEnd('/')
+    ?? throw new InvalidOperationException("Falta 'App:FrontendUrl' en appsettings.json");
+        var enlace = $"{frontendUrl}/reset-password?email={Uri.EscapeDataString(dto.Email)}&token={token}";
         var cuerpo = $@"
-        <h3>RecuperaciÛn de contraseÒa - TurismoConecta</h3>
-        <p>Haz clic en el siguiente enlace para restablecer tu contraseÒa. Este enlace expira en 30 minutos.</p>
-        <p><a href='{enlace}'>Restablecer contraseÒa</a></p>";
+        <h3>Recuperaci√≥n de contrase√±a - TurismoConecta</h3>
+        <p>Haz clic en el siguiente enlace para restablecer tu contrase√±a. Este enlace expira en 30 minutos.</p>
+        <p><a href='{enlace}'>Restablecer contrase√±a</a></p>";
 
-        await _emailService.EnviarCorreoAsync(dto.Email, "Recupera tu contraseÒa", cuerpo);
+        await _emailService.EnviarCorreoAsync(dto.Email, "Recupera tu contrase√±a", cuerpo);
     }
 
     public async Task ResetPasswordAsync(ResetPasswordRequestDto dto)
@@ -96,7 +101,7 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(u => u.Email == dto.Email && u.PasswordResetToken == dto.Token);
 
         if (usuario == null || usuario.PasswordResetExpira == null || usuario.PasswordResetExpira < DateTime.UtcNow)
-            throw new InvalidOperationException("El enlace de recuperaciÛn no es v·lido o ya expirÛ.");
+            throw new InvalidOperationException("El enlace de recuperaci√≥n no es v√°lido o ya expir√≥.");
 
         usuario.PasswordHash = _hasher.HashPassword(usuario, dto.NuevaPassword);
         usuario.PasswordResetToken = null;
@@ -108,10 +113,10 @@ public class AuthService : IAuthService
     public async Task<AuthResponseDto> LoginAsync(LoginRequestDto dto)
     {
         var usuario = await _db.Usuarios.Include(u => u.IdRolNavigation).FirstOrDefaultAsync(u => u.Email == dto.Email);
-        if (usuario == null || !usuario.Activo) throw new UnauthorizedAccessException("Credenciales inv·lidas.");
+        if (usuario == null || !usuario.Activo) throw new UnauthorizedAccessException("Credenciales inv√°lidas.");
 
         var resultado = _hasher.VerifyHashedPassword(usuario, usuario.PasswordHash, dto.Password);
-        if (resultado == PasswordVerificationResult.Failed) throw new UnauthorizedAccessException("Credenciales inv·lidas.");
+        if (resultado == PasswordVerificationResult.Failed) throw new UnauthorizedAccessException("Credenciales inv√°lidas.");
 
         var (token, expira) = _jwt.GenerarToken(usuario);
         return new AuthResponseDto

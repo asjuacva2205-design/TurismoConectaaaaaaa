@@ -1,0 +1,57 @@
+@using TurismoConecta.web.Client.Services
+@inject FavoritoApiService FavoritoService
+@inject NavigationManager Nav
+
+<AuthorizeView>
+    <Authorized>
+        <button type="button" class="btn-favorito @(marcado ? "activo" : "")"
+                disabled="@procesando" @onclick="Alternar"
+                title="@(marcado ? "Quitar de favoritos" : "Guardar en favoritos")">
+            <i class="@(marcado ? "ph-fill" : "ph") ph-heart"></i>
+            <span>@(marcado ? "Guardado" : "Guardar")</span>
+        </button>
+    </Authorized>
+    <NotAuthorized>
+        <button type="button" class="btn-favorito" @onclick="IrALogin" title="Inicia sesión para guardar favoritos">
+            <i class="ph ph-heart"></i>
+            <span>Guardar</span>
+        </button>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public int? IdMunicipio { get; set; }
+    [Parameter] public int? IdNegocio { get; set; }
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
+
+    private bool marcado;
+    private bool procesando;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        marcado = false;
+        if (AuthState is null) return;
+
+        var estado = await AuthState;
+        if (estado.User.Identity?.IsAuthenticated != true) return;
+
+        // Mismo criterio que el API: coincide el par (municipio, negocio)
+        var mios = await FavoritoService.ListarMiosAsync();
+        marcado = mios.Any(f => f.IdMunicipio == IdMunicipio && f.IdNegocio == IdNegocio);
+    }
+
+    private async Task Alternar()
+    {
+        procesando = true;
+        var (exito, nuevoEstado, _) = await FavoritoService.ToggleAsync(IdMunicipio, IdNegocio);
+        if (exito) marcado = nuevoEstado;
+        procesando = false;
+    }
+
+    // Manda al login recordando la página actual, para volver aquí después
+    private void IrALogin()
+    {
+        var paginaActual = "/" + Nav.ToBaseRelativePath(Nav.Uri);
+        Nav.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(paginaActual)}");
+    }
+}

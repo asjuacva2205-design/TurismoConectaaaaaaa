@@ -1,0 +1,115 @@
+@inject ReseñaApiService ReseñaService
+
+<div class="resenas @(Compacta ? "compacta" : "")">
+    @if (cargando)
+    {
+        <p class="resenas-cargando"><span class="spinner-resenas"></span> Cargando opiniones...</p>
+    }
+    else
+    {
+        @if (reseñas.Count > 0)
+        {
+            <!-- RESUMEN: promedio + total -->
+            <div class="resenas-resumen">
+                <span class="resumen-promedio">@Promedio.ToString("0.0")</span>
+                <div>
+                    <EstrellasCalificacion Valor="Promedio" />
+                    <span class="resumen-total">@reseñas.Count opinión@(reseñas.Count != 1 ? "es" : "")</span>
+                </div>
+            </div>
+        }
+
+        <FormularioResena IdMunicipio="IdMunicipio"
+                          IdNegocio="IdNegocio"
+                          NombreLugar="@NombreLugar"
+                          AlPublicar="AgregarPublicada" />
+
+        @if (reseñas.Count == 0)
+        {
+            <div class="resenas-vacio">
+                <i class="ph ph-chat-circle-dots" aria-hidden="true"></i>
+                <p>Aún no hay reseñas. ¡Sé el primero en contar tu experiencia!</p>
+            </div>
+        }
+        else
+        {
+            <ul class="resenas-lista">
+                @foreach (var r in Visibles)
+                {
+                    <li class="resena-item" @key="r.IdReseña">
+                        <div class="resena-cabecera">
+                            <span class="resena-avatar" aria-hidden="true">@Inicial(r.NombreUsuario)</span>
+                            <div class="resena-autor">
+                                <strong>@r.NombreUsuario</strong>
+                                <span class="resena-fecha">@r.FechaCreacion.ToString("d 'de' MMMM yyyy")</span>
+                            </div>
+                            <EstrellasCalificacion Valor="r.Calificacion" />
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(r.Comentario))
+                        {
+                            <p class="resena-comentario">@r.Comentario</p>
+                        }
+
+                        @* HU-29: respuesta pública del dueño del negocio *@
+                        @if (!string.IsNullOrWhiteSpace(r.Respuesta))
+                        {
+                            <div class="resena-respuesta">
+                                <span class="respuesta-etiqueta">
+                                    <i class="ph ph-arrow-bend-down-right" aria-hidden="true"></i> Respuesta del establecimiento
+                                </span>
+                                <p>@r.Respuesta</p>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+
+            @if (reseñas.Count > Visibles.Count)
+            {
+                <button type="button" class="btn-ver-mas-resenas" @onclick="() => mostrarTodas = true">
+                    Ver las @reseñas.Count opiniones <i class="ph ph-caret-down" aria-hidden="true"></i>
+                </button>
+            }
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public int? IdMunicipio { get; set; }
+    [Parameter] public int? IdNegocio { get; set; }
+    [Parameter] public string NombreLugar { get; set; } = "este lugar";
+
+    /// <summary>Versión corta para el modal del negocio (muestra menos reseñas).</summary>
+    [Parameter] public bool Compacta { get; set; }
+
+    private List<ReseñaDto> reseñas = new();
+    private bool cargando = true;
+    private bool mostrarTodas;
+    private (int? Municipio, int? Negocio) cargadoPara;
+
+    private int Limite => Compacta ? 2 : 4;
+    private List<ReseñaDto> Visibles => mostrarTodas ? reseñas : reseñas.Take(Limite).ToList();
+    private double Promedio => reseñas.Count == 0 ? 0 : reseñas.Average(r => r.Calificacion);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Solo recarga si cambió el lugar (p. ej. se abrió otro negocio en el modal)
+        if (cargadoPara == (IdMunicipio, IdNegocio)) return;
+        cargadoPara = (IdMunicipio, IdNegocio);
+
+        cargando = true;
+        mostrarTodas = false;
+        reseñas = await ReseñaService.ListarAsync(IdMunicipio, IdNegocio);
+        cargando = false;
+    }
+
+    // La reseña recién publicada aparece arriba; si quedó retenida por el filtro, no se muestra
+    private void AgregarPublicada(ReseñaDto creada)
+    {
+        if (creada.Moderada) reseñas.Insert(0, creada);
+    }
+
+    private static string Inicial(string nombre) =>
+        string.IsNullOrWhiteSpace(nombre) ? "?" : nombre.Trim()[..1].ToUpper();
+}
